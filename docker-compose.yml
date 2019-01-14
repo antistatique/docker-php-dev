@@ -1,0 +1,31 @@
+version: '3.6'
+
+services:
+  # Drupal web server
+  web:
+    image: antistatique/php-dev:7.2-node11
+    # build: .
+    ports:
+      - "8080:80"
+      - "3000:3000"
+      - "3001:3001"
+    depends_on:
+      - db
+    restart: always
+    volumes:
+      - .:/var/www:delegated
+
+  # Database
+  db:
+    image: mysql:5.7.23
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: drupal
+      MYSQL_USER: drupal
+      MYSQL_PASSWORD: drupal
+    restart: always
+    volumes:
+      - database:/var/lib/mysql
+
+volumes:
+  database:
