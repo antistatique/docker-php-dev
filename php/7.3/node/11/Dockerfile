@@ -1,7 +1,7 @@
-FROM php:7.2-apache
+FROM php:7.3-apache
 
 ENV APACHE_DOCUMENT_ROOT /var/www/web
-ENV NODE_MAJOR_VERSION 9
+ENV NODE_MAJOR_VERSION 11
 
 ENV PATH="/var/www/vendor/bin:${PATH}"
 

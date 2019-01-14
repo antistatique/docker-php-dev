@@ -16,15 +16,17 @@ RUN set -ex; \
   \
   savedAptMark="$(apt-mark showmanual)"; \
   \
-  # install the PHP extensions we need
+  # install the installation dependencies we need
   apt-get update; \
   apt-get install -y --no-install-recommends \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
+    libzip-dev \
     gnupg \
   ; \
   \
+  # install the PHP extensions we need
   docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
   docker-php-ext-install -j "$(nproc)" \
     gd \
@@ -53,15 +55,14 @@ RUN set -ex; \
   \
   apt-get update; \
   apt-get install -y --no-install-recommends \
+    cron \
+    git \
     mysql-client \
+    nodejs \
     python2.7 \
     unzip \
-    nodejs \
-    yarn \
-    git \
-    cron \
-    \
     vim \
+    yarn \
   ; \
   \
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
@@ -93,7 +94,7 @@ RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
 # install custom scripts
-COPY ./docker-drupal-* /usr/local/bin/
+COPY ./scripts/docker-drupal-* /usr/local/bin/
 
 # set workdir and volume
 RUN rm -rf /var/www/*
