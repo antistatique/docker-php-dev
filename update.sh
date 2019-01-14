@@ -85,12 +85,16 @@ for phpVersion in `find ./php/* -maxdepth 1 -prune -type d -exec basename {} \;`
     cp ./Dockerfile.template $dockerfilePath
     mkdir -p ./php/$phpVersion/node/$nodeVersion/scripts
     cp ./scripts/* ./php/$phpVersion/node/$nodeVersion/scripts/
+    chmod 774 ./php/$phpVersion/node/$nodeVersion/scripts/*
 
     # update Dockerfile
     sed -i '' \
       -e "s!%%PHP_VERSION%%!${phpVersion}!g" \
       -e "s!%%NODE_VERSION%%!${nodeVersion}!g" \
       "$dockerfilePath"
+
+    # Add to git
+    git add ./php/$phpVersion/node/$nodeVersion
 
     # build docker imge if required
     if [[ "$VERSION_TO_BUILD" == "all" || "$VERSION_TO_BUILD" == "$phpVersion-node$nodeVersion" ]]; then

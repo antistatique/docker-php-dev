@@ -94,7 +94,7 @@ RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
 # install custom scripts
-COPY ./scripts/docker-drupal-* /usr/local/bin/
+COPY ./scripts/docker-as-* /usr/local/bin/
 
 # set workdir and volume
 RUN rm -rf /var/www/*
@@ -102,5 +102,5 @@ WORKDIR /var/www
 
 VOLUME /var/www
 
-ENTRYPOINT ["docker-drupal-entrypoint"]
+ENTRYPOINT ["docker-as-entrypoint"]
 CMD ["apache2-foreground"]

@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-set -e
-
-cd /var/www
-
-docker-drupal-deps
-docker-drupal-app-init
-docker-drupal-styles-build
