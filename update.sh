@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+USE_CACHE=1
 PHP_LAST_VERSION=$(find ./php/* -maxdepth 1 -prune -type d -exec basename {} \; | sort -n | tail -n 1)
 NODE_LAST_VERSION=$(find ./php/$PHP_LAST_VERSION/node/* -maxdepth 1 -prune -type d -exec basename {} \; | sort -n | tail -n 1)
 
@@ -15,6 +16,7 @@ while test $# -gt 0; do
        echo "options:"
        echo "-h, --help                show brief help"
        echo "-b, --build=VERSION       VERSION is optional, all images are build by default; set a VERSION like '7.2-node8', or 'latest'"
+       echo "--no-cache"               do not pull image from repository previously to build it
        echo "--latest                  shortcut to build latest version (--build=latest)"
        echo "--publish=VERSION         set a VERSION like '7.2-node8', 'all', or 'latest'; publish also build images"
        exit 0
@@ -39,6 +41,9 @@ while test $# -gt 0; do
       VERSION_TO_BUILD=$VERSION_TO_PUBLISH
       shift
       ;;
+    --no-cache)
+      USE_CACHE=0
+      ;;
      *)
        break
        ;;
@@ -53,6 +58,15 @@ function tag {
   else
     echo "$1-node$2"
   fi
+}
+
+function pull {
+  (
+    set -e
+    TAG=$(tag $1 $2)
+
+    docker pull antistatique/php-dev:$TAG
+  )
 }
 
 function build {
@@ -114,6 +128,9 @@ for phpVersion in `find ./php/* -maxdepth 1 -prune -type d -exec basename {} \; 
 
     # build docker imge if required
     if [[ "$VERSION_TO_BUILD" == "all" || "$VERSION_TO_BUILD" == "$phpVersion-node$nodeVersion" ]]; then
+      if [ "$USE_CACHE" -gt 0 ]; then
+        pull $phpVersion $nodeVersion
+      fi
       build $phpVersion $nodeVersion
     fi
 
