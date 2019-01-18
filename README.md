@@ -114,13 +114,37 @@ RUN set -ex; \
 
 ## Usage
 
-```bash
-docker-compose up
-docker-compose up --build
-docker-compose down
+Start services with `docker-compose up`, _CTRL+C_ to stop them. `--build` option can be use when
+a custom `Dockerfile` exists to force to re-build the image.
 
-docker system prune
-docker system prune --all
+`docker-compose` use directory name as default project name as prefix for container and storage
+name, that can be overrided with `-p <name>` options in case of conflict options in case of
+conflict.
+
+### Managing docker
+
+```bash
+docker-compose up             # Start services (CTRL+C to stop)
+docker-compose up --build     # Start services and force build of local Dockerfile if exists
+docker-compose pull           # Pull remote images (to update them)
+
+docker-compose down           # Remove containers and network interfaces (do not remove db storage)
+docker-compose rm             # Remove all stopped service containers
+
+docker system prune           # Remove unused data (dandling images, stopped containers, unused
+                              # networks and build caches)
+docker system prune --all     # Remove all images, containers and networks
+docker volume ls              # list all existing volums (on computer)
+docker volume rm <volume>     # Remove named volume (to reset database)
+```
+
+### Managing project
+
+```bash
+
+docker-compose run --rm web <comand>    # Spawn new service container to run the command
+                                        # (container is removed when existing)
+docker-compose exec web <comand>        # Run the commmand in existing service container
 
 docker-compose exec web docker-as-cleanup
 
@@ -132,6 +156,7 @@ docker-compose exec web docker-as-drupal-prepare
 
 docker-compose exec web docker-as-styles-serve
 ```
+
 
 ## Update
 

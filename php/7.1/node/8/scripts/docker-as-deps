@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -e
+
+cd /var/www
+composer install --no-interaction --prefer-dist --no-suggest
+yarn install --non-interactive
