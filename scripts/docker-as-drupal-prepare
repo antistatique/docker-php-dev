@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-set -e
-
-cd /var/www
-
-docker-as-deps
-docker-as-drupal-init
-docker-as-styles-build

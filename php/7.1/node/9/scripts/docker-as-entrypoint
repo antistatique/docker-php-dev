@@ -1,11 +1,6 @@
 #!/usr/bin/env sh
 set -e
 
-# wait to ensure database is ready
-while ! mysqladmin ping -h "db" --silent; do
-  sleep 1
-done
-
 # initialize web server container
 if [ "$1" = "apache2-foreground" ]; then
   cron

@@ -2,5 +2,4 @@
 set -e
 
 cd /var/www
-
-yarn build
+git clean -dXff

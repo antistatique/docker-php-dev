@@ -95,12 +95,14 @@ RUN curl -sS https://getcomposer.org/installer | php && \
 
 # install custom scripts
 COPY ./scripts/docker-as-* /usr/local/bin/
+RUN chmod 755 /usr/local/bin/docker-as-*
 
 # set workdir and volume
 RUN rm -rf /var/www/*
 WORKDIR /var/www
 
+# volumes
 VOLUME /var/www
+VOLUME /var/backups
 
-ENTRYPOINT ["docker-as-entrypoint"]
 CMD ["apache2-foreground"]

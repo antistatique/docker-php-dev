@@ -1,31 +1,63 @@
 version: '3.6'
 
 services:
-  # Drupal web server
-  web:
-    image: antistatique/php-dev:7.2-node11
-    # build: .
+  # Drupal development server
+  dev:
+    image: antistatique/php-dev:7.1-node8
     ports:
       - "8080:80"
-      - "3000:3000"
-      - "3001:3001"
     depends_on:
       - db
+      - mail
+    environment:
+      DATABASE_URL: mysql://drupal:drupal@db/drupal_development
+      SMTP_HOST: mail:1025
+      PRIVATE_FILES: /var/private_files
+      DEFAULT_CONTENT: bat_default_content
     restart: always
     volumes:
-      - .:/var/www:delegated
+      - .:/var/www:cached
+      - backups:/var/backups
+
+  # Drupal test server
+  test:
+    image: antistatique/php-dev:7.1-node8
+    command: docker-as-drupal runserver
+    ports:
+      - "8888:8888"
+    depends_on:
+      - db
+      - mail
+    environment:
+      DATABASE_URL: mysql://drupal:drupal@db/drupal_test
+      SMTP_HOST: mail:1025
+      PRIVATE_FILES: /var/private_files
+      DEFAULT_CONTENT: bat_default_content
+    restart: "no"
+    volumes:
+      - .:/var/www:cached
+      - backups:/var/backups
 
   # Database
   db:
     image: mysql:5.7.23
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: drupal
       MYSQL_USER: drupal
       MYSQL_PASSWORD: drupal
+      MYSQL_DATABASE: drupal\_%
+      MYSQL_ROOT_PASSWORD: root
     restart: always
     volumes:
       - database:/var/lib/mysql
 
+  # Mail
+  mail:
+    image: schickling/mailcatcher
+    ports:
+      - "1025:1025"
+      - "1080:1080"
+    restart: always
+
 volumes:
   database:
+  backups:

@@ -2,41 +2,136 @@
 
 ## Setup
 
-Create file `docker-compose.yml` in project root directory using following content. PHP, Node and
-MySQL version must be set properly.
+A `docker-compose.yml` file must be created in project working directory. Follow setup related to
+the project type. This image support any PHP/Node project and have an apache server running and
+rendering content in the working diretory. Folling type of project have a dedicted helper tool:
+
+* Drupal (`docker-as-drupal`)
+
+The volume `/var/www` can have a delay before updates made on the host are visible in the
+container ; remove `:cached` if it's an issue but that will result to slowest command
+execution time in docker
+
+### PHP & Node versions
+
+The version for PHP and Node can be selected in image tag, follwing versions are availables :
+
+* PHP 7.1
+  * Node 8
+  * Node 9
+  * Node 10
+  * Node 11
+* PHP 7.2
+  * Node 8
+  * Node 9
+  * Node 10
+  * Node 11
+* PHP 7.3
+  * Node 11
+  * Node 11
+
+### Drupal setup
+
+This setup using _Mailcatcher_ as mail server, and mysql as database (remove mail service if
+not required).
+
+Following environement variable are available:
+
+```bash
+DATABASE_URL     # Database URL scheme, should be different for dev and test services
+DATABASE_DUMP    # Database dump file path (default to "/var/backups/database.sql"). Must
+                 # be located in a volume shared by dev and test services.
+SMTP_HOST        # <host:port> to mail server (docker mailcatcher service)
+SITE_NAME        # Default set to "Drupal Website"
+SITE_UUID        # Deault set to UUID in system.side.yml file
+PRIVATE_FILES    # Path to private files diretory (add it to settings on bootstrap)
+DEFAULT_CONTENT  # Default content modules to use
+```
+
+`behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like
+in follwing example if used:
+
+```yaml
+docker:
+  extensions:
+    Alex\MailCatcher\Behat\MailCatcherExtension\Extension:
+      url: http://mail:1080
+```
+
+`docker-compose.yml`:
 
 ```yaml
 version: '3.6'
 
 services:
-  # Web server
-  web:
-    image: antistatique/php-dev:7.2-node11
+  # Drupal development server
+  dev:
+    image: antistatique/php-dev:7.1-node8
     ports:
       - "8080:80"
-      - "3000:3000"
-      - "3001:3001"
     depends_on:
       - db
+      - mail
+    environment:
+      DATABASE_URL: mysql://drupal:drupal@db/drupal_development
+      SMTP_HOST: mail:1025
+      PRIVATE_FILES: /var/private_files
+      DEFAULT_CONTENT: project_default_content
     restart: always
     volumes:
-      - .:/var/www:delegated
+      - .:/var/www:cached
+      - backups:/var/backups
+
+  # Drupal test server
+  test:
+    image: antistatique/php-dev:7.1-node8
+    command: docker-as-drupal runserver 0.0.0.0:8888
+    ports:
+      - "8888:8888"
+    depends_on:
+      - db
+      - mail
+    environment:
+      DATABASE_URL: mysql://drupal:drupal@db/drupal_test
+      SMTP_HOST: mail:1025
+      PRIVATE_FILES: /var/private_files
+      DEFAULT_CONTENT: project_default_content
+    restart: "no"
+    volumes:
+      - .:/var/www:cached
+      - backups:/var/backups
 
   # Database
   db:
-    image: mysql:5.7.23
+    image: mariadb:10.1
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: drupal
       MYSQL_USER: drupal
       MYSQL_PASSWORD: drupal
+      MYSQL_DATABASE: drupal\_%
+      MYSQL_ROOT_PASSWORD: root
     restart: always
     volumes:
       - database:/var/lib/mysql
 
+  # Mail
+  mail:
+    image: schickling/mailcatcher
+    ports:
+      - "1025:1025"
+      - "1080:1080"
+    restart: always
+
 volumes:
   database:
+  backups:
 ```
+
+Use `docker-compose up` to start services then following command to boostrap (or reset) the
+Drupal installation: `docker-compose exec dev docker-as-drupal bootstrap`. Test service must
+be started manualy after bootstrap by running `docker-compose restart test`.
+
+
+### Custom docker image
 
 To install more packages or change some setup in docker image, a local `Dockerfile` can  be created
 and the `docker-compose.yml` file must be updated to use _build_ instead of _image_ config.
@@ -44,11 +139,9 @@ and the `docker-compose.yml` file must be updated to use _build_ instead of _ima
 information about how to install a package or enable PHP extension.
 
 ```yaml
-
 services:
-  web:
+  dev:
     build: .
-
 ```
 
 ```Dockerfile
@@ -117,9 +210,8 @@ RUN set -ex; \
 Start services with `docker-compose up`, _CTRL+C_ to stop them. `--build` option can be use when
 a custom `Dockerfile` exists to force to re-build the image.
 
-`docker-compose` use directory name as default project name as prefix for container and storage
-name, that can be overrided with `-p <name>` options in case of conflict options in case of
-conflict.
+`docker-compose` use directory name as default project name to prefix container and volume
+name, that can be overrided with `-p <name>` options in case of conflict.
 
 ### Managing docker
 
@@ -136,29 +228,57 @@ docker system prune           # Remove unused data (dandling images, stopped con
 docker system prune --all     # Remove all images, containers and networks
 docker volume ls              # list all existing volums (on computer)
 docker volume rm <volume>     # Remove named volume (to reset database)
+
+# Run the commmand in existing service container
+docker-compose exec <service name> <comand>
 ```
 
-### Managing project
+### Drupal
+
+
+`docker-as-drupal` script is used to manage database, Drupal install or run behat.
+
+*bootstrap* must be run to setup Drupal project, that will install dependencies, install
+Drupal, setup database and all required settings. A database dump is also created before
+loading default content to be used to setup test environment (or reseet default content
+later).
+
+Available options are:
 
 ```bash
+docker-compose exec web docker-as-drupal bootstrap [options]
 
-docker-compose run --rm web <comand>    # Spawn new service container to run the command
-                                        # (container is removed when existing)
-docker-compose exec web <comand>        # Run the commmand in existing service container
+  --skip-dependencies      # Do not run composer and yarn install
+  --skip-install           # Do not run Drupal install (only if arealdy installed)
+  --skip-default-content   # Do not load default content
+  --skip-styleguide-build  # Do not run yarn build
+```
 
-docker-compose exec web docker-as-cleanup
+*db-reset* reset database using database dump made by last bootstrap command or _db-reset_
+command.
 
-docker-compose exec web docker-as-deps
-docker-compose exec web docker-as-drupal-init
-docker-compose exec web docker-as-styles-build
+Available options are:
 
-docker-compose exec web docker-as-drupal-prepare
+```bash
+docker-compose exec web docker-as-drupal db-reset [options]
 
-docker-compose exec web docker-as-styles-serve
+  --skip-default-content   # Do not load default content
+  --update-dump            # Update database dump (include updated Drupal config)
+```
+
+*behat* setup database and settings properly then run behat command including any options
+like file path, _--rerun_ or more.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal behat [options]
+
+  --skip-reset             # Skip database reset before default content reload
 ```
 
 
-## Update
+## Work on the docker image
 
 ```bash
 ./update.sh
