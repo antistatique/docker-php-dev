@@ -46,6 +46,11 @@ SITE_NAME        # Default set to "Drupal Website"
 SITE_UUID        # Deault set to UUID in system.side.yml file
 PRIVATE_FILES    # Path to private files diretory (add it to settings on bootstrap)
 DEFAULT_CONTENT  # Default content modules to use
+
+PHPUNIT_DEFAULT_GROUP         # A group used by default with 'phpunit --default'
+SYMFONY_DEPRECATIONS_HELPER   # Default to weak, can be overwrited
+SIMPLETEST_DB                 # Default to DATABASE_URL, can be overwrited
+SIMPLETEST_BASE_URL           # Default to "http://127.0.0.1:8888"
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like
@@ -217,11 +222,15 @@ name, that can be overrided with `-p <name>` options in case of conflict.
 
 ```bash
 docker-compose up             # Start services (CTRL+C to stop)
+docker-compose up -d          # Start services (deamonize)
 docker-compose up --build     # Start services and force build of local Dockerfile if exists
 docker-compose pull           # Pull remote images (to update them)
 
+docker-compose stop           # Stop services
 docker-compose down           # Remove containers and network interfaces (do not remove db storage)
 docker-compose rm             # Remove all stopped service containers
+
+docker-compose log            # Display services' log (-f to follow log output)
 
 docker system prune           # Remove unused data (dandling images, stopped containers, unused
                               # networks and build caches)
@@ -275,6 +284,17 @@ Available options are:
 docker-compose exec test docker-as-drupal behat [options]
 
   --skip-reset             # Skip database reset before default content reload
+```
+
+*phpunit* setup database and settings properly then run phpunit command including any options
+like file path, _--stop-on-failure_ or more.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal phpunit [options]
+
+  --skip-reset             # Skip database reset
 ```
 
 

@@ -10,6 +10,11 @@ set -e
 : ${PRIVATE_FILES:=""}
 : ${DEFAULT_CONTENT:=""}
 
+: ${PHPUNIT_DEFAULT_GROUP:=""}
+: ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
+: ${SIMPLETEST_DB:="$DATABASE_URL"}
+: ${SIMPLETEST_BASE_URL:="http://127.0.0.1:8888"}
+
 # Script variables
 SCRIPT_NAME=$(basename $0)
 CONFIG_DIR="../config/d8/sync/"
@@ -18,6 +23,7 @@ DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
 DRUPAL_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1" >/dev/null 2>&1 && echo 1 || echo 0)
 BEHAT_LOG="./log/behat"
+BROWSERTEST_OUTPUT_DIRECTORY="/var/www/logs/phpunit"
 
 # Prinz help
 function print_help() {
@@ -36,6 +42,12 @@ function print_help() {
   * behat
     --skip-reset             # Skip database reset before default content reload
     --help                   # Display behat help
+    ...                      # any behat valid args
+
+  * phpunit
+    --skip-reset             # Skip database reset before default content reload
+    --help                   # Display phpunit help
+    ...                      # any phpunit valid args (default: --stop-on-error --stop-on-failure)
 
   * runserver
     --skip-default-content   # Do not load default content
@@ -301,7 +313,7 @@ elif [ "$1" = "runserver" ]; then
 
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
-  drush runserver "$RUNSERVER_ARGV"
+  drush runserver $RUNSERVER_ARGV
 
 #
 # RUN BEHAT TESTS
@@ -347,10 +359,10 @@ elif [ "$1" = "behat" ]; then
 
   # create log directory
   mkdir -vp $BEHAT_LOG
-  chmod 777 $BEHAT_LOG
+  chmod -R 777 $BEHAT_LOG
 
   # Run tests with docker profile
-  behat --colors --strict --profile=docker "$BEHAT_ARGV"
+  behat --colors --strict --profile=docker $BEHAT_ARGV
   behat_exit=$?
 
   # Disable default content
@@ -361,6 +373,75 @@ elif [ "$1" = "behat" ]; then
 
   # exit
   exit $behat_exit
+
+#
+# RUN PHPUNIT TESTS
+#
+elif [ "$1" = "phpunit" ]; then
+  shift
+
+  PHPUNIT_GROUPS=""
+  PHPUNIT_EXCLUDE_GROUPS=""
+  PHPUNIT_ARGV=""
+  SKIP_RESET=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-reset)
+        SKIP_RESET=1
+        ;;
+      --group=*)
+        PHPUNIT_GROUPS="$PHPUNIT_GROUPS --group ${1#*=}"
+        ;;
+      --exclude-group=*)
+        PHPUNIT_EXCLUDE_GROUPS="$PHPUNIT_EXCLUDE_GROUPS --exclude-group ${1#*=}"
+        ;;
+      --help)
+        phpunit --help
+        exit $?
+        ;;
+      *)
+        PHPUNIT_ARGV="$PHPUNIT_ARGV $1"
+        ;;
+    esac
+    shift
+  done
+
+  # Use default group if not in present in arguements
+  : ${PHPUNIT_GROUPS:="--group $PHPUNIT_DEFAULT_GROUP"}
+
+  # Set bacl DATABASE_URL to the simpletest db to reset proper database.
+  DATABASE_URL=$SIMPLETEST_DB
+  export DATABASE_URL
+
+  if [ $SKIP_RESET -eq 0 ] || [ $DRUPAL_INSTALLED -eq 0 ]; then
+    # Reset database
+    database_reset
+
+    # Setup mailer (was reset when loaded back config)
+    enable_mail_host
+  fi
+
+  # Ensure log directory exists
+  mkdir -vp "$BROWSERTEST_OUTPUT_DIRECTORY"
+  chmod -R 777 "$BROWSERTEST_OUTPUT_DIRECTORY"
+
+  # Run tests
+  phpunit_exit=0
+  (
+    cd web
+
+    export SYMFONY_DEPRECATIONS_HELPER
+    export SIMPLETEST_DB
+    export SIMPLETEST_BASE_URL
+    export BROWSERTEST_OUTPUT_DIRECTORY
+
+    phpunit -c core $PHPUNIT_GROUPS $PHPUNIT_EXCLUDE_GROUPS --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" $PHPUNIT_ARGV
+    phpunit_exit=$?
+  )
+
+  # exit
+  exit $phpunit_exit
 
 #
 # COMMAND NOT FOUND
