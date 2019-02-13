@@ -27,7 +27,7 @@ The version for PHP and Node can be selected in image tag, follwing versions are
   * Node 10
   * Node 11
 * PHP 7.3
-  * Node 11
+  * Node 10
   * Node 11
 
 ### Drupal setup
@@ -255,7 +255,7 @@ later).
 Available options are:
 
 ```bash
-docker-compose exec web docker-as-drupal bootstrap [options]
+docker-compose exec dev docker-as-drupal bootstrap [options]
 
   --skip-dependencies      # Do not run composer and yarn install
   --skip-install           # Do not run Drupal install (only if arealdy installed)
@@ -269,7 +269,7 @@ command.
 Available options are:
 
 ```bash
-docker-compose exec web docker-as-drupal db-reset [options]
+docker-compose exec dev docker-as-drupal db-reset [options]
 
   --skip-default-content   # Do not load default content
   --update-dump            # Update database dump (include updated Drupal config)
