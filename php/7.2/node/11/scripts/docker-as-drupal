@@ -112,13 +112,17 @@ function enable_mail_host() {
 function import_drupal_config() {
   printf "\e[1;35m* Import drupal configuration.\e[0m\n"
 
-  attempt=0
-  until drush config-import -y --source="$CONFIG_DIR"; do
-    attempt=$(( attempt+1 ))
-    if [ "$attempt" -ge 4 ]; then
-      exit 1
-    fi
-  done
+  (
+    set +e
+
+    attempt=0
+    until drush config-import -y --source="$CONFIG_DIR"; do
+      attempt=$(( attempt+1 ))
+      if [ "$attempt" -ge 4 ]; then
+        exit 1
+      fi
+    done
+  )
 
   # Fix Sitename bugged keep display "| Drupal"
   # @see https://www.drupal.org/node/2851877
