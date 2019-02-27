@@ -135,6 +135,14 @@ function import_drupal_config() {
   drush cache-rebuild
 }
 
+# Ensure directory for private files exists
+function create_private_files_dir() {
+  if [ ! -z "$PRIVATE_FILES" ]; then
+    mkdir -vp "$PRIVATE_FILES"
+    chmod 775 "$PRIVATE_FILES"
+  fi
+}
+
 
 #
 # BOOTSTRAP Drupal
@@ -217,9 +225,8 @@ if [ "$1" = "bootstrap" ]; then
   # Setup usage of private files
   if [ ! -z "$PRIVATE_FILES" ]; then
     printf "\e[1;35m* Setup private files.\e[0m\n"
+    create_private_files_dir
 
-    mkdir -vp "$PRIVATE_FILES"
-    chmod 775 "$PRIVATE_FILES"
     sed -ri -e "s@.+\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
   fi
 
@@ -315,6 +322,9 @@ elif [ "$1" = "runserver" ]; then
     fi
   fi
 
+  # Ensure directory for private files exists
+  create_private_files_dir
+
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
   drush runserver $RUNSERVER_ARGV
@@ -351,6 +361,9 @@ elif [ "$1" = "behat" ]; then
     # Setup mailer (was reset when loaded back config)
     enable_mail_host
   fi
+
+  # Ensure directory for private files exists
+  create_private_files_dir
 
   # Load default content
   enable_default_content
@@ -425,6 +438,9 @@ elif [ "$1" = "phpunit" ]; then
     # Setup mailer (was reset when loaded back config)
     enable_mail_host
   fi
+
+  # Ensure directory for private files exists
+  create_private_files_dir
 
   # Ensure log directory exists
   mkdir -vp "$BROWSERTEST_OUTPUT_DIRECTORY"
