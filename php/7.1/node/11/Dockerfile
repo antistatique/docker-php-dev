@@ -104,7 +104,6 @@ RUN rm -rf /var/www/*
 WORKDIR /var/www
 
 # volumes
-VOLUME /var/www
 VOLUME /var/backups
 
 CMD ["apache2-foreground"]
