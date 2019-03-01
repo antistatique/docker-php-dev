@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -e
+
+# Environement variables
+: ${WAIT:=300}
+: ${DATABASE_HOST:="db"}
+
+# Print help
+function print_help() {
+  echo "usage: $SCRIPT_NAME [options]
+
+    --wait   # How mayn seconds to wait before exit with error
+
+  * services:
+    --mysql  # Wait until MySQL is ready
+  "
+}
+
+# Test if MySQL is ready
+function test_mysql {
+  mysqladmin ping -h "$DATABASE_HOST" --silent
+}
+
+# Command options
+TEST_CMD=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --mysql)
+      TEST_CMD="$TEST_CMD test_mysql"
+      ;;
+    --wait=*)
+      WAIT=$((${1#*=} * 10))
+      ;;
+    *)
+      print_help
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$TEST_CMD" ]; then
+  printf "\e[01;35mAt least one service must be waited.\e[0m\n\n"
+  print_help
+  exit 1
+fi
+
+# Wait loop
+count=0
+until ( $TEST_CMD )
+do
+  ((count++))
+  if [ ${count} -gt ${WAIT} ]
+  then
+    echo "Services didn't become ready in time"
+    exit 1
+  fi
+  sleep 0.1
+done

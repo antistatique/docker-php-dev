@@ -25,7 +25,7 @@ DRUPAL_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1
 BEHAT_LOG="./log/behat"
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/logs/phpunit"
 
-# Prinz help
+# Print help
 function print_help() {
   echo "usage: $SCRIPT_NAME <action> [options]
 
@@ -467,7 +467,7 @@ elif [ "$1" = "phpunit" ]; then
 # COMMAND NOT FOUND
 #
 else
-  [ "$1" = "--help" ] || printf "\e[01;3'$1\` command not found.\e[0m\n\n"
+  [ "$1" = "--help" ] || printf "\e[01;35m'$1\` command not found.\e[0m\n\n"
   print_help
   exit 1
 fi
