@@ -94,6 +94,14 @@ function enable_default_content() {
   fi
 }
 
+# Disable default content modules
+function disable_default_content() {
+  (
+    set +e
+    drush pmu default_content $DEFAULT_CONTENT -y || true
+  )
+}
+
 # Update swiftmailer config to use host from environment
 function enable_mail_host() {
   if [ ! -z "$SMTP_HOST" ] && drush pm-list | grep -q 'swiftmailer'; then
@@ -236,7 +244,7 @@ if [ "$1" = "bootstrap" ]; then
   # Load default content (then disable module)
   if [ $SKIP_DEFAULT -eq 0 ]; then
     enable_default_content
-    drush pmu default_content $DEFAULT_CONTENT -y
+    disable_default_content
   fi
 
   # Build styleguide assets
@@ -276,7 +284,7 @@ elif [ "$1" = "db-reset" ]; then
   # Load default content (then disable module)
   if [ $SKIP_DEFAULT -eq 0 ]; then
     enable_default_content
-    drush pmu default_content $DEFAULT_CONTENT -y
+    disable_default_content
   fi
 
 #
@@ -318,7 +326,7 @@ elif [ "$1" = "runserver" ]; then
     # Load default content (then disable module)
     if [ $SKIP_DEFAULT -eq 0 ]; then
       enable_default_content
-      drush pmu default_content $DEFAULT_CONTENT -y
+      disable_default_content
     fi
   fi
 
@@ -383,7 +391,7 @@ elif [ "$1" = "behat" ]; then
   behat_exit=$?
 
   # Disable default content
-  drush pmu default_content $DEFAULT_CONTENT -y
+  disable_default_content
 
   # Re-enable Big Pipe.
   drush en big_pipe -y
