@@ -184,8 +184,8 @@ if [ "$1" = "bootstrap" ]; then
   if [ $SKIP_DEPENDENCIES -eq 0 ]; then
     printf "\e[1;35m* Install dependencies.\e[0m\n"
 
-    composer install --no-interaction --prefer-dist --no-suggest
-    yarn install --non-interactive
+    composer install --no-interaction --prefer-dist --no-suggest --no-progress
+    yarn install --non-interactive --no-progress
   fi
 
   if [ $SKIP_INSTALL -eq 0 ] || [ $DRUPAL_INSTALLED -eq 0 ]; then
