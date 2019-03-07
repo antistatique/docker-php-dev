@@ -7,13 +7,18 @@ set -e
 : ${SMTP_HOST:="mail:1025"}
 : ${SITE_NAME:="Drupal Website"}
 : ${SITE_UUID:=$(sed -n -e '/uuid:/ s/.*\: *//p' ./config/d8/sync/system.site.yml)}
+: ${SITE_HASH_SALT:=""}
 : ${PRIVATE_FILES:=""}
 : ${DEFAULT_CONTENT:=""}
 
+: ${BEHAT_PROFILE:="docker"}
 : ${PHPUNIT_DEFAULT_GROUP:=""}
 : ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
 : ${SIMPLETEST_DB:="$DATABASE_URL"}
 : ${SIMPLETEST_BASE_URL:="http://127.0.0.1:8888"}
+
+: ${TEST_SERVER_HOST:="0.0.0.0"}
+: ${TEST_SERVER_PORT:="8888"}
 
 # Script variables
 SCRIPT_NAME=$(basename $0)
@@ -21,9 +26,9 @@ CONFIG_DIR="../config/d8/sync/"
 DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
 DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
-DRUPAL_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1" >/dev/null 2>&1 && echo 1 || echo 0)
 BEHAT_LOG="./log/behat"
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/logs/phpunit"
+DRUPAL_IS_INSTALLED=0
 
 # Print help
 function print_help() {
@@ -45,17 +50,33 @@ function print_help() {
     ...                      # any behat valid args
 
   * phpunit
-    --skip-reset             # Skip database reset before default content reload
+    --skit-reset             # Skip reset of database before running tests
     --help                   # Display phpunit help
     ...                      # any phpunit valid args (default: --stop-on-error --stop-on-failure)
 
-  * runserver
+  * php-server
     --skip-default-content   # Do not load default content
-    --force-reset            # Do not reset database before run server.
-    --help                   # Display runserver help
+    --force-reset            # Reset database before launch server
+    --help                   # Display server help
+
+  * apache-server
+    --skip-default-content   # Do not load default content
+    --force-reset            # Reset database before launch server
+    --help                   # Display server help
   "
 }
 
+function drupal_is_installed() {
+  if [ $DRUPAL_IS_INSTALLED -eq 0 ]; then
+   DRUPAL_IS_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1" >/dev/null 2>&1 && echo 1 || echo 0)
+  fi
+
+  [ $DRUPAL_IS_INSTALLED -eq 1 ]
+}
+
+function drupal_not_installed() {
+  ! drupal_is_installed
+}
 
 # Reset database with dump made before loading default content on bootstrap.
 function database_reset() {
@@ -113,6 +134,38 @@ function enable_mail_host() {
   fi
 }
 
+# Setup settings.php file, database connection and directory for private files
+function setup() {
+  if [ ! -f ./web/sites/default/settings.php ]; then
+    printf "\e[1;35m* Create settings.php file.\e[0m\n"
+    mkdir -p ./web/sites/default
+    chmod 775 ./sites/default
+    cp ./web/sites/default/default.settings.php ./web/sites/default/settings.php
+    chmod 664 --quiet ./web/sites/default/settings.php || true
+  fi
+
+  # Set Hash Salt
+  : ${SITE_HASH_SALT:=$(drush php-eval 'echo \Drupal\Component\Utility\Crypt::randomBytesBase64(55) . "\n";')}
+  sed -ri -e "s@\\\$settings\['hash_salt'\].+;@\\\$settings\['hash_salt'\] = '$SITE_HASH_SALT';@g" ./web/sites/default/settings.php
+
+  # Fix config directory in settings file
+  sed -ri -e "s@\\\$config_directories\['sync'\].+;@\\\$config_directories\['sync'\] = '../config/d8/sync';@g" ./web/sites/default/settings.php
+
+  # Use DATABASE_URL to populate database config
+  if grep -vq '^\$databases\[\"default\"\]\[\"default\"\]' ./web/sites/default/settings.php; then
+    echo '$databases["default"]["default"] = \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo(getenv("DATABASE_URL"), DRUPAL_ROOT);' \
+      >> ./web/sites/default/settings.php
+  fi
+
+  # Setup usage of private files
+  if [ ! -z "$PRIVATE_FILES" ]; then
+    printf "\e[1;35m* Setup private files.\e[0m\n"
+    create_private_files_dir
+
+    sed -ri -e "s@.+\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
+  fi
+}
+
 # Import Drupal config
 #
 # Sometimes Drupal import configs in wrong orders.
@@ -160,6 +213,7 @@ if [ "$1" = "bootstrap" ]; then
 
   SKIP_DEPENDENCIES=0
   SKIP_INSTALL=0
+  SKIP_RESET=0
   SKIP_DEFAULT=0
   SKIP_STYLEGUIDE=0
 
@@ -171,10 +225,18 @@ if [ "$1" = "bootstrap" ]; then
       --skip-install)
         SKIP_INSTALL=1
         ;;
+      --skip-reset)
+        SKIP_RESET=1
+        ;;
       --skip-default-content)
         SKIP_DEFAULT=1
         ;;
       --skip-styleguide-build)
+        SKIP_STYLEGUIDE=1
+        ;;
+      --only-install)
+        SKIP_DEPENDENCIES=1
+        SKIP_DEFAULT=1
         SKIP_STYLEGUIDE=1
         ;;
     esac
@@ -188,14 +250,18 @@ if [ "$1" = "bootstrap" ]; then
     yarn install --non-interactive --no-progress
   fi
 
-  if [ $SKIP_INSTALL -eq 0 ] || [ $DRUPAL_INSTALLED -eq 0 ]; then
+  # Setup settings & Co.
+  setup
+
+  # Install Drupal
+  if [ $SKIP_INSTALL -eq 0 ] || (drupal_not_installed && [ ! -f $DATABASE_DUMP ]); then
+    printf "\e[1;35m* Install Drupal from scratch.\e[0m\n"
+    if [ $SKIP_INSTALL -eq 1 ] && drupal_not_installed; then
+      printf "\e[1;35m* (forced beceause not installed).\e[0m\n"
+    fi
+
     (
       set -e
-
-      printf "\e[1;35m* Install Drupal from scratch.\e[0m\n"
-      if [ $SKIP_INSTALL -eq 1 ] && [ $DRUPAL_INSTALLED -eq 0 ]; then
-        printf "\e[1;35m* (forced beceause not installed).\e[0m\n"
-      fi
 
       # move in web directory
       cd web
@@ -203,46 +269,38 @@ if [ "$1" = "bootstrap" ]; then
       # Install drupal
       drush si standard --db-url=$DATABASE_URL --site-name="$SITE_NAME" --account-name=admin --account-pass=admin --account-mail="admin@example.com" -y
 
-      # Fix rights on settings.php file
-      chmod 775 ./sites/default
-      chmod 664 --quiet ./sites/default/settings.php || true
-
-      # Fix config directory in settings file
-      sed -ri -e "s@\\\$config_directories\['sync'\].+;@\\\$config_directories\['sync'\] = '../config/d8/sync';@g" ./sites/default/settings.php
-
-      # Use DATABASE_URL to populate database config
-      echo '$databases["default"]["default"] = \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo(getenv("DATABASE_URL"), DRUPAL_ROOT);' \
-        >> ./sites/default/settings.php
-
       # Remove unwanted content from database that break config import.
       drush ev '\Drupal::entityManager()->getStorage("shortcut_set")->load("default")->delete();'
 
       # Fix Drupal UUID in database config
       drush config-set system.site uuid "$SITE_UUID" -y
-
-      # Load config
-      import_drupal_config
-
-      # Save database dump after install
-      database_dump
     )
+
+    # Load config
+    import_drupal_config
+
+    # Setup mailer
+    enable_mail_host
+
+    # Save database dump after install
+    database_dump
+
+  # Or reset database?
+  elif [ $SKIP_RESET -eq 0 ]; then
+    printf "\e[1;35m* Skip install Drupal from scratch. But reset database.\e[0m\n"
+
+    # Reset the database
+    database_reset
+
+    # Setup mailer
+    enable_mail_host
+
   else
     printf "\e[1;35m* Skip install Drupal from scratch.\e[0m\n"
   fi
 
-  # Setup usage of private files
-  if [ ! -z "$PRIVATE_FILES" ]; then
-    printf "\e[1;35m* Setup private files.\e[0m\n"
-    create_private_files_dir
-
-    sed -ri -e "s@.+\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
-  fi
-
-  # Setup mailer
-  enable_mail_host
-
   # Load default content (then disable module)
-  if [ $SKIP_DEFAULT -eq 0 ]; then
+  if [ $SKIP_DEFAULT -eq 0 ] && drupal_is_installed; then
     enable_default_content
     disable_default_content
   fi
@@ -251,6 +309,15 @@ if [ "$1" = "bootstrap" ]; then
   if [ $SKIP_STYLEGUIDE -eq 0 ]; then
     yarn build --production
   fi
+
+#
+# CREATE SETTINGS FILE
+#
+elif [ "$1" = "settings" ]; then
+  shift
+
+  # Setup settings & Co.
+  setup
 
 #
 # RESET DATABASE
@@ -288,35 +355,42 @@ elif [ "$1" = "db-reset" ]; then
   fi
 
 #
-# RUN BEHAT TESTS
+# RUN PHP SERVER
 #
-elif [ "$1" = "runserver" ]; then
+elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
   shift
 
-  RUNSERVER_ARGV=""
+  TEST_SERVER_ARGS=()
+  SKIP_RESET=1
   SKIP_DEFAULT=0
-  FORCE_RESET=0
 
   while [ $# -gt 0 ]; do
     case "$1" in
+      --force-reset)
+        SKIP_RESET=0
+        ;;
       --skip-default-content)
         SKIP_DEFAULT=1
         ;;
-      --force-reset)
-        FORCE_RESET=1
+      *:*)
+        TEST_SERVER_HOST=${1%:*}
+        TEST_SERVER_PORT=${1#*:}
         ;;
       --help)
         drush runserver --help
         exit $?
         ;;
       *)
-        RUNSERVER_ARGV="$RUNSERVER_ARGV $1"
+        TEST_SERVER_ARGS+=($1)
         ;;
     esac
     shift
   done
 
-  if [ $FORCE_RESET -eq 1 ] || [ $DRUPAL_INSTALLED -eq 0 ]; then
+  # Setup settings & Co.
+  setup
+
+  if [ $SKIP_RESET -eq 0 ] || drupal_not_installed; then
     # Reset database
     database_reset
 
@@ -324,18 +398,74 @@ elif [ "$1" = "runserver" ]; then
     enable_mail_host
 
     # Load default content (then disable module)
-    if [ $SKIP_DEFAULT -eq 0 ]; then
+    if [ $SKIP_DEFAULT -eq 0 ] && [ $SKIP_RESET -eq 0 ]; then
       enable_default_content
       disable_default_content
     fi
   fi
 
-  # Ensure directory for private files exists
-  create_private_files_dir
+  # Run server
+  printf "\e[1;35m* Launch test server.\e[0m\n"
+  drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT "${TEST_SERVER_ARGS[@]}"
+
+#
+# RUN TEST SERVER
+#
+elif [ "$1" = "apache-server" ]; then
+  shift
+
+  TEST_SERVER_ARGS=()
+  TEST_SERVER_CACHE=0
+  SKIP_DEFAULT=0
+  SKIP_RESET=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force-reset)
+        SKIP_RESET=1
+        ;;
+      --skip-default-content)
+        SKIP_DEFAULT=1
+        ;;
+      --cache)
+        TEST_SERVER_CACHE=1
+        ;;
+      --help)
+        apache2-foreground -h
+        exit $?
+        ;;
+      *)
+        TEST_SERVER_ARGS+=($1)
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  if [ $SKIP_RESET -eq 0 ] || drupal_not_installed; then
+    # Reset database
+    database_reset
+
+    # Setup mailer (was reset when loaded back config)
+    enable_mail_host
+
+    # Load default content (then disable module)
+    if [ $SKIP_DEFAULT -eq 0 ] && [ $SKIP_RESET -eq 0 ]; then
+      enable_default_content
+      disable_default_content
+    fi
+  fi
+
+  # Disable opache file timestemps check
+  if [ $TEST_SERVER_CACHE -eq 1 ]; then
+    echo 'opcache.validate_timestamps=0' >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+  fi
 
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
-  drush runserver $RUNSERVER_ARGV
+  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" "${TEST_SERVER_ARGS[@]}"
 
 #
 # RUN BEHAT TESTS
@@ -343,7 +473,7 @@ elif [ "$1" = "runserver" ]; then
 elif [ "$1" = "behat" ]; then
   shift
 
-  BEHAT_ARGV=""
+  BEHAT_ARGV=()
   SKIP_RESET=0
 
   while [ $# -gt 0 ]; do
@@ -356,22 +486,22 @@ elif [ "$1" = "behat" ]; then
         exit $?
         ;;
       *)
-        BEHAT_ARGV="$BEHAT_ARGV $1"
+        BEHAT_ARGV+=($1)
         ;;
     esac
     shift
   done
 
-  if [ $SKIP_RESET -eq 0 ] || [ $DRUPAL_INSTALLED -eq 0 ]; then
+  # Setup settings & Co.
+  setup
+
+  if [ $SKIP_RESET -eq 0 ] || drupal_not_installed; then
     # Reset database
     database_reset
 
     # Setup mailer (was reset when loaded back config)
     enable_mail_host
   fi
-
-  # Ensure directory for private files exists
-  create_private_files_dir
 
   # Load default content
   enable_default_content
@@ -387,7 +517,7 @@ elif [ "$1" = "behat" ]; then
   chmod -R 777 $BEHAT_LOG
 
   # Run tests with docker profile
-  behat --colors --strict --profile=docker $BEHAT_ARGV
+  behat --colors --strict --profile=$BEHAT_PROFILE "${BEHAT_ARGV[@]}"
   behat_exit=$?
 
   # Disable default content
@@ -407,7 +537,7 @@ elif [ "$1" = "phpunit" ]; then
 
   PHPUNIT_GROUPS=""
   PHPUNIT_EXCLUDE_GROUPS=""
-  PHPUNIT_ARGV=""
+  PHPUNIT_ARGV=()
   SKIP_RESET=0
 
   while [ $# -gt 0 ]; do
@@ -426,7 +556,7 @@ elif [ "$1" = "phpunit" ]; then
         exit $?
         ;;
       *)
-        PHPUNIT_ARGV="$PHPUNIT_ARGV $1"
+        PHPUNIT_ARGV+=($1)
         ;;
     esac
     shift
@@ -439,16 +569,16 @@ elif [ "$1" = "phpunit" ]; then
   DATABASE_URL=$SIMPLETEST_DB
   export DATABASE_URL
 
-  if [ $SKIP_RESET -eq 0 ] || [ $DRUPAL_INSTALLED -eq 0 ]; then
+  # Setup settings & Co.
+  setup
+
+  if [ $SKIP_RESET -eq 0 ] || drupal_not_installed; then
     # Reset database
     database_reset
 
     # Setup mailer (was reset when loaded back config)
     enable_mail_host
   fi
-
-  # Ensure directory for private files exists
-  create_private_files_dir
 
   # Ensure log directory exists
   mkdir -vp "$BROWSERTEST_OUTPUT_DIRECTORY"
@@ -464,12 +594,20 @@ elif [ "$1" = "phpunit" ]; then
     export SIMPLETEST_BASE_URL
     export BROWSERTEST_OUTPUT_DIRECTORY
 
-    phpunit -c core $PHPUNIT_GROUPS $PHPUNIT_EXCLUDE_GROUPS --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" $PHPUNIT_ARGV
+    phpunit -c core $PHPUNIT_GROUPS $PHPUNIT_EXCLUDE_GROUPS --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" "${PHPUNIT_ARGV[@]}"
     phpunit_exit=$?
   )
 
   # exit
   exit $phpunit_exit
+
+#
+# COMMAND NOT FOUND
+#
+elif [ "$1" = "run" ]; then
+  shift
+
+  exec "$@"
 
 #
 # COMMAND NOT FOUND

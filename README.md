@@ -47,10 +47,14 @@ SITE_UUID        # Deault set to UUID in system.side.yml file
 PRIVATE_FILES    # Path to private files diretory (add it to settings on bootstrap)
 DEFAULT_CONTENT  # Default content modules to use
 
+BEHAT_PROFILE                 # Default to "docker"
 PHPUNIT_DEFAULT_GROUP         # A group used by default with 'phpunit --default'
 SYMFONY_DEPRECATIONS_HELPER   # Default to weak, can be overwrited
 SIMPLETEST_DB                 # Default to DATABASE_URL, can be overwrited
 SIMPLETEST_BASE_URL           # Default to "http://127.0.0.1:8888"
+
+TEST_SERVER_HOST # Default to 0.0.0.0
+TEST_SERVER_PORT # Default to 8888
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like
@@ -90,7 +94,7 @@ services:
   # Drupal test server
   test:
     image: antistatique/php-dev:7.1-node8
-    command: docker-as-drupal runserver 0.0.0.0:8888
+    command: docker-as-drupal apache-server
     ports:
       - "8888:8888"
     depends_on:
@@ -295,6 +299,28 @@ Available options are:
 docker-compose exec test docker-as-drupal phpunit [options]
 
   --skip-reset             # Skip database reset
+```
+
+*php-server* run `drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT` command.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal php-server [options]
+
+  --skip-default-content   # Do not load default content
+  --forst-reset             # Force database reset
+```
+
+*apache-server* run `apache2 -D FOREGROUND -c "Listen $TEST_SERVER_PORT"` command.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal apache-server [options]
+
+  --skip-default-content   # Do not load default content
+  --forst-reset             # Force database reset
 ```
 
 

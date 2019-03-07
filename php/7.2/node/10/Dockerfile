@@ -55,15 +55,15 @@ RUN set -ex; \
   \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    cron \
     git \
-    mysql-client \
     libpng-dev \
+    mysql-client \
+    netcat \
     nodejs \
     python2.7 \
     unzip \
-    vim \
     yarn \
+    vim \
   ; \
   \
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
@@ -96,8 +96,8 @@ RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
 # install custom scripts
-COPY ./scripts/docker-as-* /usr/local/bin/
-RUN chmod 755 /usr/local/bin/docker-as-*
+COPY ./scripts/wait-for-it ./scripts/docker-as-* /usr/local/bin/
+RUN chmod 755 /usr/local/bin/docker-as-* /usr/local/bin/wait-for-it
 
 # set workdir and volume
 RUN rm -rf /var/www/*

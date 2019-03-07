@@ -2,8 +2,13 @@
 set -e
 
 # Environement variables
-: ${WAIT:=300}
+: ${WAIT:=30}
 : ${DATABASE_HOST:="db"}
+: ${MAIL_HOST:="mail"}
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+CMD=""
+WAITFORIT_PIDS=()
 
 # Print help
 function print_help() {
@@ -12,24 +17,32 @@ function print_help() {
     --wait   # How mayn seconds to wait before exit with error
 
   * services:
-    --mysql  # Wait until MySQL is ready
+    --mysql       # Wait until MySQL is ready
+    --mailcatcher # Wait until Mailcatcher is ready
+    HOST:PORT     # Any host and port to check (can be set multiple time)
   "
 }
 
-# Test if MySQL is ready
-function test_mysql {
-  mysqladmin ping -h "$DATABASE_HOST" --silent
-}
-
 # Command options
-TEST_CMD=""
+SERVICES=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --mysql)
-      TEST_CMD="$TEST_CMD test_mysql"
+      SERVICES+=($DATABASE_HOST:3306)
+      ;;
+    --mailcatcher)
+      SERVICES+=($MAIL_HOST:1080)
       ;;
     --wait=*)
       WAIT=$((${1#*=} * 10))
+      ;;
+    *:*)
+      SERVICES+=(${1%:*}:${1#*:})
+      ;;
+    --)
+      shift
+      CMD=("$@")
+      break
       ;;
     *)
       print_help
@@ -39,21 +52,29 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if [ -z "$TEST_CMD" ]; then
-  printf "\e[01;35mAt least one service must be waited.\e[0m\n\n"
-  print_help
-  exit 1
-fi
+function kill_children() {
+  for WAITFORIT_PID in ${WAITFORIT_PIDS[@]}; do
+    kill -INT -$WAITFORIT_PID
+  done
+}
 
-# Wait loop
-count=0
-until ( $TEST_CMD )
-do
-  ((count++))
-  if [ ${count} -gt ${WAIT} ]
-  then
-    echo "Services didn't become ready in time"
-    exit 1
-  fi
-  sleep 0.1
+# Run waitng process for every services
+for SERVICE in ${SERVICES[@]}; do
+  timeout $WAIT $SCRIPTPATH/wait-for-it "$SERVICE" --timeout=0 --quiet --child &
+  WAITFORIT_PIDS+=($!)
+  trap kill_children INT
 done
+
+# Wait on services (or timeout)
+for WAITFORIT_PID in ${WAITFORIT_PIDS[@]}; do
+  wait $WAITFORIT_PID
+  WAITFORIT_RESULT=$?
+  if [[ $WAITFORIT_RESULT -ne 0 ]]; then
+    exit $WAITFORIT_RESULT
+  fi
+done
+
+# Run command
+if [ ! -z "$CMD" ]; then
+  exec "${CMD[@]}"
+fi
