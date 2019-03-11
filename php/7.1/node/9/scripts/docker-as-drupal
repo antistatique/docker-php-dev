@@ -136,13 +136,13 @@ function enable_mail_host() {
 
 # Setup settings.php file, database connection and directory for private files
 function setup() {
+  printf "\e[1;35m* Update settings.php file.\e[0m\n"
+  mkdir -p ./web/sites/default
+  chmod 775 ./sites/default
   if [ ! -f ./web/sites/default/settings.php ]; then
-    printf "\e[1;35m* Create settings.php file.\e[0m\n"
-    mkdir -p ./web/sites/default
-    chmod 775 ./sites/default
     cp ./web/sites/default/default.settings.php ./web/sites/default/settings.php
-    chmod 664 --quiet ./web/sites/default/settings.php || true
   fi
+  chmod 664 --quiet ./web/sites/default/settings.php || true
 
   # Set Hash Salt
   : ${SITE_HASH_SALT:=$(drush php-eval 'echo \Drupal\Component\Utility\Crypt::randomBytesBase64(55) . "\n";')}
@@ -342,6 +342,9 @@ elif [ "$1" = "db-reset" ]; then
 
   # Reset database without default content
   database_reset
+
+  # Setup mailer (was reset when loaded back config)
+  enable_mail_host
 
   # Save database dump after reset (including drupal config update)
   if [ $UPDATE_DATABASE_DUMP -eq 1 ]; then

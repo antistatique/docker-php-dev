@@ -19,11 +19,11 @@ RUN set -ex; \
   # install the installation dependencies we need
   apt-get update; \
   apt-get install -y --no-install-recommends \
+    gnupg \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
     libzip-dev \
-    gnupg \
   ; \
   \
   # install the PHP extensions we need
@@ -56,14 +56,16 @@ RUN set -ex; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
     git \
+    imagemagick \
     libpng-dev \
     mysql-client \
     netcat \
     nodejs \
     python2.7 \
     unzip \
-    yarn \
     vim \
+    webp \
+    yarn \
   ; \
   \
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
