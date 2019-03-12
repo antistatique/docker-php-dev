@@ -3,7 +3,7 @@ FROM php:7.1-apache
 ENV APACHE_DOCUMENT_ROOT /var/www/web
 ENV NODE_MAJOR_VERSION 8
 
-ENV PATH="/var/www/vendor/bin:${PATH}"
+ENV PATH="/var/www/node_modules/.bin:~/.composer/vendor/bin:/var/www/vendor/bin:${PATH}"
 
 # Install dependencies
 RUN set -ex; \

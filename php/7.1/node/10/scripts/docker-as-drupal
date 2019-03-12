@@ -138,7 +138,7 @@ function enable_mail_host() {
 function setup() {
   printf "\e[1;35m* Update settings.php file.\e[0m\n"
   mkdir -p ./web/sites/default
-  chmod 775 ./sites/default
+  chmod 775 ./web/sites/default
   if [ ! -f ./web/sites/default/settings.php ]; then
     cp ./web/sites/default/default.settings.php ./web/sites/default/settings.php
   fi
