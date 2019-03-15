@@ -29,6 +29,7 @@ DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
 BEHAT_LOG="./log/behat"
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/logs/phpunit"
 DRUPAL_IS_INSTALLED=0
+DEFAULT_CONTENT_MODULES=""
 
 # Print help
 function print_help() {
@@ -107,25 +108,27 @@ function database_dump() {
 
 # Load default content in database
 function enable_default_content() {
-  if [ ! -z "$DEFAULT_CONTENT" ] && drush pm-list | grep -q $DEFAULT_CONTENT; then
-    printf "\e[1;35m* Run fixtures & default content.\e[0m\n"
+  if [ ! -z "$DEFAULT_CONTENT" ]; then
+    printf "\e[1;35m* Load default contents.\e[0m\n"
 
-    drush pmu default_content $DEFAULT_CONTENT -y
+    disable_default_content
+    DEFAULT_CONTENT_MODULES="$(drush pm-list --field=name --status=enabled | sort)"
     drush en $DEFAULT_CONTENT -y
+    DEFAULT_CONTENT_MODULES=$(comm -13 <(echo "$DEFAULT_CONTENT_MODULES") <(drush pm-list --field=name --status=enabled | sort))
   fi
 }
 
 # Disable default content modules
 function disable_default_content() {
-  (
-    set +e
-    drush pmu default_content $DEFAULT_CONTENT -y || true
-  )
+  if [ ! -z "$DEFAULT_CONTENT_MODULES" ] || drush pm-list --field=name --status=enabled | grep -q 'default_content'; then
+    : ${DEFAULT_CONTENT_MODULES:="default_content"}
+    drush pmu $DEFAULT_CONTENT_MODULES -y
+  fi
 }
 
 # Update swiftmailer config to use host from environment
 function enable_mail_host() {
-  if [ ! -z "$SMTP_HOST" ] && drush pm-list | grep -q 'swiftmailer'; then
+  if [ ! -z "$SMTP_HOST" ] && drush pm-list --field=name --status=enabled | grep -q 'swiftmailer'; then
     printf "\e[1;35m* Setup mail host.\e[0m\n"
 
     drush cset swiftmailer.transport smtp_host "${SMTP_HOST%:*}" -y
