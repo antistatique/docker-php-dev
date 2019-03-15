@@ -164,6 +164,8 @@ function setup() {
 
     sed -ri -e "s@.+\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
   fi
+
+  enable_mail_host
 }
 
 # Import Drupal config
@@ -313,7 +315,7 @@ if [ "$1" = "bootstrap" ]; then
 #
 # CREATE SETTINGS FILE
 #
-elif [ "$1" = "settings" ]; then
+elif [ "$1" = "setup" ]; then
   shift
 
   # Setup settings & Co.
