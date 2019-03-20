@@ -62,10 +62,10 @@ function tag {
 
 function pull {
   (
-    set -e
+    set +e
     TAG=$(tag $1 $2)
 
-    docker pull antistatique/php-dev:$TAG
+    docker pull antistatique/php-dev:$TAG || true
   )
 }
 

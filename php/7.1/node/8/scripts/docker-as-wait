@@ -2,7 +2,7 @@
 set -e
 
 # Environement variables
-: ${WAIT:=60}
+: ${WAIT:=120}
 : ${DATABASE_HOST:="db"}
 : ${MAIL_HOST:="mail"}
 
