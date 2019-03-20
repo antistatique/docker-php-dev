@@ -38,23 +38,25 @@ not required).
 Following environement variable are available:
 
 ```bash
-DATABASE_URL     # Database URL scheme, should be different for dev and test services
-DATABASE_DUMP    # Database dump file path (default to "/var/backups/database.sql"). Must
-                 # be located in a volume shared by dev and test services.
-SMTP_HOST        # <host:port> to mail server (docker mailcatcher service)
-SITE_NAME        # Default set to "Drupal Website"
-SITE_UUID        # Deault set to UUID in system.side.yml file
-PRIVATE_FILES    # Path to private files diretory (add it to settings on bootstrap)
-DEFAULT_CONTENT  # Default content modules to use
+DATABASE_URL                  # Database URL scheme, should be different for dev and test services
+DATABASE_DUMP                 # Database dump file path (default to "/var/backups/db-reset.sql"). Must
+                              # be located in a volume shared by dev and test services.
+SMTP_HOST                     # <host:port> to mail server (default to mail:1025 as docker mailcatcher service)
+SITE_NAME                     # Drupal site name (default set to "Drupal Website")
+SITE_CONFIG_DIR               # Drupal configuration sync directory (default to /var/www/config/d8/sync)
+SITE_UUID                     # Drupal site UUID (default set to UUID in system.side.yml file)
+SITE_HASH_SALT                # Drupal hash salt (default to random string)
+SITE_INSTALL_PROFILE          # Drupal installation profile (default to standard)
+PRIVATE_FILES                 # Path to private files diretory (add it to settings on bootstrap)
+DEFAULT_CONTENT               # Default content modules to use
+LOG_DIR                       # Default to /var/www/log (behat and phpunit output directories are inside)
 
-BEHAT_PROFILE                 # Default to "docker"
-PHPUNIT_DEFAULT_GROUP         # A group used by default with 'phpunit --default'
-SYMFONY_DEPRECATIONS_HELPER   # Default to weak, can be overwrited
+BEHAT_PROFILE                 # Behat config profile (default to "default")
+PHPUNIT_DEFAULT_GROUP         # Default phpunit group used if "--group" is not set
+SIMPLETEST_BASE_URL           # Default to "http://test:8888"
 SIMPLETEST_DB                 # Default to DATABASE_URL, can be overwrited
-SIMPLETEST_BASE_URL           # Default to "http://127.0.0.1:8888"
-
-TEST_SERVER_HOST # Default to 0.0.0.0
-TEST_SERVER_PORT # Default to 8888
+SYMFONY_DEPRECATIONS_HELPER   # Default to weak, can be overwrited
+TEST_SERVER_PORT              # Default to 8888
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like
@@ -83,8 +85,7 @@ services:
       - mail
     environment:
       DATABASE_URL: mysql://drupal:drupal@db/drupal_development
-      SMTP_HOST: mail:1025
-      PRIVATE_FILES: /var/private_files
+      PRIVATE_FILES: /var/www/web/sites/default/files/private
       DEFAULT_CONTENT: project_default_content
     restart: always
     volumes:
@@ -94,7 +95,7 @@ services:
   # Drupal test server
   test:
     image: antistatique/php-dev:7.1-node8
-    command: docker-as-drupal apache-server
+    command: docker-as-wait --mysql -- docker-as-drupal apache-server
     ports:
       - "8888:8888"
     depends_on:
@@ -102,8 +103,7 @@ services:
       - mail
     environment:
       DATABASE_URL: mysql://drupal:drupal@db/drupal_test
-      SMTP_HOST: mail:1025
-      PRIVATE_FILES: /var/private_files
+      PRIVATE_FILES: /var/www/web/sites/default/files/private
       DEFAULT_CONTENT: project_default_content
     restart: "no"
     volumes:
@@ -113,6 +113,8 @@ services:
   # Database
   db:
     image: mariadb:10.1
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_USER: drupal
       MYSQL_PASSWORD: drupal
@@ -263,8 +265,19 @@ docker-compose exec dev docker-as-drupal bootstrap [options]
 
   --skip-dependencies      # Do not run composer and yarn install
   --skip-install           # Do not run Drupal install (only if arealdy installed)
-  --skip-default-content   # Do not load default content
+  --skip-db-reset          # Do not reset database using SQL dump (only when --skip-install)
   --skip-styleguide-build  # Do not run yarn build
+  --with-default-content   # Load default content (force reset database when --skip-install)
+  --install-only           # Same ass --skip-dependencies --skip-styleguide-build
+```
+
+*setup* ensure that Drupal settings.php file is populated and docker related settings are
+properly set. Except install dependencies, same process is done before most of other commands.
+
+```bash
+docker-compose exec dev docker-as-drupal setup [options]
+
+  --skip-dependencies      # Do not run composer and yarn install
 ```
 
 *db-reset* reset database using database dump made by last bootstrap command or _db-reset_
@@ -275,8 +288,58 @@ Available options are:
 ```bash
 docker-compose exec dev docker-as-drupal db-reset [options]
 
-  --skip-default-content   # Do not load default content
-  --update-dump            # Update database dump (include updated Drupal config)
+  --update-dump            # Update database dump (include updated Drupal config, but not
+                           # default content)
+  --with-default-content   # Load default content (before dump)
+```
+
+*db-dump* dump database. The dump can be used with _db-restore_ to reset database to saved
+state.
+
+Available options are:
+
+```bash
+docker-compose exec dev docker-as-drupal db-dump [options]
+
+    --file=<path>            # Path to dump file (not required)
+```
+
+*db-restore* reset database to saved state using database dump made by last _db-dump_.
+
+Available options are:
+
+```bash
+docker-compose exec dev docker-as-drupal db-restore [options]
+
+    --file=<path>            # Path to dump file (not required)
+```
+
+*php-server* run `drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT` command.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal php-server [options]
+
+  --with-db-reset          # Reset database before launch server
+  --with-default-content   # Load default content (force reset database)
+  --help                   # Display runserver help
+  -- <...>                 # any runserver valid args
+```
+
+*apache-server* run `apache2 -D FOREGROUND -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT"` command.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal apache-server [options]
+
+  --with-db-reset          # Reset database before launch server
+  --with-default-content   # Load default content (force reset database)
+  --cache                  # Do not invalidate opcache (server must be restarted
+                            # reload cache)
+  --help                   # Display apache help
+  -- <...>                 # any apache valid args
 ```
 
 *behat* setup database and settings properly then run behat command including any options
@@ -287,7 +350,11 @@ Available options are:
 ```bash
 docker-compose exec test docker-as-drupal behat [options]
 
-  --skip-reset             # Skip database reset before default content reload
+  --skip-dependencies      # Do not run composer and yarn install
+  --skip-db-reset          # Do not reset database (to use only if database was reset just before)
+  --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+  --help                   # Display behat help
+  -- <...>                 # any behat valid args
 ```
 
 *phpunit* setup database and settings properly then run phpunit command including any options
@@ -298,31 +365,14 @@ Available options are:
 ```bash
 docker-compose exec test docker-as-drupal phpunit [options]
 
-  --skip-reset             # Skip database reset
+  --skip-dependencies      # Do not run composer and yarn install
+  --skip-default-stop      # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+  --with-db-reset          # Reset (load) database before running test
+  --group=<group>          # Only runs tests from the specified group(s)
+  --exclude-group=<group>  # Exclude tests from the specified group(s)
+  --help                   # Display phpunit help
+  -- <...>                 # any phpunit valid args
 ```
-
-*php-server* run `drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT` command.
-
-Available options are:
-
-```bash
-docker-compose exec test docker-as-drupal php-server [options]
-
-  --skip-default-content   # Do not load default content
-  --forst-reset             # Force database reset
-```
-
-*apache-server* run `apache2 -D FOREGROUND -c "Listen $TEST_SERVER_PORT"` command.
-
-Available options are:
-
-```bash
-docker-compose exec test docker-as-drupal apache-server [options]
-
-  --skip-default-content   # Do not load default content
-  --forst-reset             # Force database reset
-```
-
 
 ## Work on the docker image
 

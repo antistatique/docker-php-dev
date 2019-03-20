@@ -3,7 +3,7 @@ FROM php:7.2-apache
 ENV APACHE_DOCUMENT_ROOT /var/www/web
 ENV NODE_MAJOR_VERSION 8
 
-ENV PATH="/var/www/node_modules/.bin:~/.composer/vendor/bin:/var/www/vendor/bin:${PATH}"
+ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
 
 # Install dependencies
 RUN set -ex; \
@@ -29,6 +29,7 @@ RUN set -ex; \
   # install the PHP extensions we need
   docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
   docker-php-ext-install -j "$(nproc)" \
+    bcmath \
     gd \
     opcache \
     pdo_mysql \
