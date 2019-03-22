@@ -156,7 +156,7 @@ function setup() {
   if [ ! -z "$PRIVATE_FILES" ]; then
     printf "\e[1;35m* Setup private files.\e[0m\n"
 
-    sed -ri -e "s@#?\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
+    sed -ri -e "s@#?.*\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
 
     mkdir -p "$PRIVATE_FILES"
     chmod -R 777 "$PRIVATE_FILES"
@@ -220,8 +220,15 @@ function database_reset() {
   # Load database dump to reset its state
   $(drush sql:connect) < $FILE_PATH
 
+  # First attemps to update database (can fail)
+  drush updatedb -y || true
+
   # Load Drupal config
   import_drupal_config
+
+  # Final attempt to update database and entities
+  drush updatedb -y
+  drush entity:update -y
 }
 
 # Dump database
