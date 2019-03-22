@@ -16,6 +16,7 @@ set -e
 
 : ${BEHAT_PROFILE:="default"}
 : ${PHPUNIT_DEFAULT_GROUP:=""}
+: ${PHPUNIT_DEFAULT_EXCLUDE_GROUP:=""}
 : ${SIMPLETEST_BASE_URL:="http://test:8888"}
 : ${SIMPLETEST_DB:="$DATABASE_URL"}
 : ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
@@ -603,7 +604,7 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
 
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
-  drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT "${TEST_SERVER_ARGS[@]}"
+  drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT ${TEST_SERVER_ARGS[@]}
 
 #
 # RUN TEST SERVER
@@ -668,7 +669,7 @@ elif [ "$1" = "apache-server" ]; then
 
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
-  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" "${TEST_SERVER_ARGS[@]}"
+  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" ${TEST_SERVER_ARGS[@]}
 
 #
 # RUN BEHAT TESTS
@@ -740,7 +741,7 @@ elif [ "$1" = "behat" ]; then
   find "$BEHAT_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
 
   # Run tests with docker profile
-  behat --colors --strict --profile=$BEHAT_PROFILE "${BEHAT_ARGV[@]}"
+  behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
   behat_exit=$?
 
   # Disable default content
@@ -797,7 +798,12 @@ elif [ "$1" = "phpunit" ]; then
   done
 
   # Use default group if not in present in arguements
-  : ${PHPUNIT_GROUPS:=("--group $PHPUNIT_DEFAULT_GROUP")}
+  if [ -z "$PHPUNIT_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_GROUP" ]; then
+    PHPUNIT_GROUPS=("--group $PHPUNIT_DEFAULT_GROUP")
+  fi
+  if [ -z "$PHPUNIT_EXCLUDE_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_EXCLUDE_GROUP" ]; then
+    PHPUNIT_EXCLUDE_GROUPS=("--exclude-group $PHPUNIT_DEFAULT_EXCLUDE_GROUP")
+  fi
 
   # Set bacl DATABASE_URL to the simpletest db to reset proper database.
   DATABASE_URL=$SIMPLETEST_DB
@@ -823,8 +829,8 @@ elif [ "$1" = "phpunit" ]; then
     # Setup mailer (was reset when loaded back config)
     enable_mail_host
 
-  elif ! drush sql:query "SELECT 1" >/dev/null 2>&1; then
-    # Create database if not exists
+  else
+    # Ensure to have an empty database
     drush sql:create -y
   fi
 
@@ -844,7 +850,7 @@ elif [ "$1" = "phpunit" ]; then
     export SIMPLETEST_BASE_URL
     export BROWSERTEST_OUTPUT_DIRECTORY
 
-    phpunit -c core "${PHPUNIT_GROUPS[@]}" "${PHPUNIT_EXCLUDE_GROUPS[@]}" --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" "${PHPUNIT_ARGV[@]}"
+    phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
     phpunit_exit=$?
   )
 
