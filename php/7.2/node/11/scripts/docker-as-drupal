@@ -118,6 +118,17 @@ function print_help() {
     --help                   # Display phpunit help
     -- <...>                 # any phpunit valid args
 
+  * quality-check
+
+  Run code quality tools (phpcs, phpmc, phpcpd).
+
+    --skip-phpcs             # Do not run phpcs
+    --skip-phpmd             # Do not run phpmd
+    --skip-phpcpd            # Do not run phpcpd
+    --fail-on-phpcs          # Command fail if phpcs fail too
+    --fail-on-phpmd          # Command fail if phpmd fail too
+    --fail-on-phpcpd         # Command fail if phpcpd fail too
+
   * run
 
     Run any shell command.
@@ -841,7 +852,6 @@ elif [ "$1" = "phpunit" ]; then
   find "$BROWSERTEST_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
 
   # Run tests
-  phpunit_exit=0
   (
     cd web
 
@@ -851,11 +861,7 @@ elif [ "$1" = "phpunit" ]; then
     export BROWSERTEST_OUTPUT_DIRECTORY
 
     phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
-    phpunit_exit=$?
   )
-
-  # exit
-  exit $phpunit_exit
 
 #
 # COMMAND TO RUN
@@ -904,6 +910,93 @@ elif [ "$1" = "run" ]; then
 
   exec "${CMD[@]}"
 
+#
+# QUALITY CHECK
+#
+elif [ "$1" = "quality-check" ]; then
+  shift
+
+  SKIP_PHPCS=0
+  SKIP_PHPMD=0
+  SKIP_PHPCPD=0
+  FAIL_ON_PHPCS=0
+  FAIL_ON_PHPMD=0
+  FAIL_ON_PHPCPD=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-phpcs)
+        SKIP_PHPCS=1
+        ;;
+      --skip-phpmd)
+        SKIP_PHPMD=1
+        ;;
+      --skip-phpcpd)
+        SKIP_PHPCPD=1
+        ;;
+      --fail-on-phpcs)
+        FAIL_ON_PHPCS=1
+        ;;
+      --fail-on-phpmd)
+        FAIL_ON_PHPMD=1
+        ;;
+      --fail-on-phpcpd)
+        FAIL_ON_PHPCPD=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  if [ -d /var/www/behat ]; then
+    BEHAT="./behat"
+  fi
+
+  (
+    set +e
+    phpcs_exit=0
+    phpmd_exit=0
+    phpcpd_exit=0
+
+    if [ $SKIP_PHPCS -eq 0 ] && command -v phpcs >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Code Sniffer Drupal & DrupalPractice for /web/modules/custom ...\e[0m\n"
+
+      phpcs --config-set installed_paths "/var/www/vendor/drupal/coder/coder_sniffer"
+      phpcs --standard=Drupal,DrupalPractice --colors --encoding=utf-8 \
+        --extensions=php,module,inc,install,test,profile,theme,info,txt \
+        --ignore=*.md,*.info.yml,*.css,./web/modules/uninstall/*,./web/modules/custom/uninstall/* \
+        ./web/modules/custom $BEHAT
+      phpcs_exit=$?
+    fi
+
+    if [ $SKIP_PHPMD -eq 0 ] && command -v phpmd >/dev/null 2>&1; then
+      printf "\e[1;35m* Running PHP Mess Detector for /web/modules/custom ...\e[0m\n"
+
+      phpmd ./web/modules/custom text \
+        ./phpmd.xml --suffixes php,module,inc,install,test,profile,theme,info,txt
+      phpmd_exit=$?
+    fi
+
+    if [ $SKIP_PHPCPD -eq 0 ] && command -v phpcpd >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Copy/Paste Detector for /web/modules/custom ...\e[0m\n"
+
+      phpcpd ./web/modules/custom $BEHAT \
+        --names=*.php,*.module,*.inc,*.install,*.test,*.profile,*.theme,*.info,*.txt \
+        --names-exclude=*.md,*.info.yml,*Tests.php --ansi
+      phpcpd_exit=$?
+    fi
+
+    if [ $FAIL_ON_PHPCS -eq 1 ] && [ $phpcs_exit -gt 0 ]; then
+      exit $phpcs_exit
+    elif [ $FAIL_ON_PHPMD -eq 1 ] && [ $phpmd_exit -gt 0 ]; then
+      exit $phpmd_exit
+    elif [ $FAIL_ON_PHPCPD -eq 1 ] && [ $phpcpd_exit -gt 0 ]; then
+      exit $phpcpd_exit
+    fi
+  )
 
 #
 # HELP

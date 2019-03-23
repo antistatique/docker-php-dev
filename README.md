@@ -374,6 +374,22 @@ docker-compose exec test docker-as-drupal phpunit [options]
   -- <...>                 # any phpunit valid args
 ```
 
+*quality-check* run tools like _phpcs_, _phpmd_ and _phpcpd_ and print a report about code issues. This
+action don't fail if any of theses commands reporting errors.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal quality-check [options]
+
+  --skip-phpcs             # Do not run phpcs
+  --skip-phpmd             # Do not run phpmd
+  --skip-phpcpd            # Do not run phpcpd
+  --fail-on-phpcs          # Command fail if phpcs fail too
+  --fail-on-phpmd          # Command fail if phpmd fail too
+  --fail-on-phpcpd         # Command fail if phpcpd fail too
+```
+
 ## Work on the docker image
 
 ```bash
