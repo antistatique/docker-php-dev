@@ -12,7 +12,7 @@ set -e
 : ${SITE_INSTALL_PROFILE:="standard"}
 : ${PRIVATE_FILES:=""}
 : ${DEFAULT_CONTENT:=""}
-: ${LOG_DIR:="/var/ww/log"}
+: ${LOG_DIR:="/var/www/log"}
 
 : ${BEHAT_PROFILE:="default"}
 : ${PHPUNIT_DEFAULT_GROUP:=""}
