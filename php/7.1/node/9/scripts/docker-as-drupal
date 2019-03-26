@@ -149,12 +149,12 @@ function setup() {
   fi
   chmod 664 --quiet ./web/sites/default/settings.php || true
 
+  # Fix config directory in settings file
+  sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+
   # Set Hash Salt
   : ${SITE_HASH_SALT:=$(drush php-eval 'echo \Drupal\Component\Utility\Crypt::randomBytesBase64(55) . "\n";')}
-  sed -ri -e "s@\\\$settings\['hash_salt'\].+;@\\\$settings\['hash_salt'\] = '$SITE_HASH_SALT';@g" ./web/sites/default/settings.php
-
-  # Fix config directory in settings file
-  sed -ri -e "s@\\\$config_directories\['sync'\].+;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+  sed -ri -e "s@^\\\$settings\['hash_salt'\].+;@\\\$settings\['hash_salt'\] = '$SITE_HASH_SALT';@g" ./web/sites/default/settings.php
 
   # Use DATABASE_URL to populate database config
   if ! grep -q 'convertDbUrlToConnectionInfo' ./web/sites/default/settings.php; then
