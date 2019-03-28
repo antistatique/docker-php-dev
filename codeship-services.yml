@@ -1,0 +1,40 @@
+7.1-node8:
+  image_name: antistatique/php-dev
+  build: ./php/7.1/node/8
+  cache: true
+7.1-node9:
+  image_name: antistatique/php-dev
+  build: ./php/7.1/node/9
+  cache: true
+7.1-node10:
+  image_name: antistatique/php-dev
+  build: ./php/7.1/node/10
+  cache: true
+7.1-node11:
+  image_name: antistatique/php-dev
+  build: ./php/7.1/node/11
+  cache: true
+7.2-node8:
+  image_name: antistatique/php-dev
+  build: ./php/7.2/node/8
+  cache: true
+7.2-node9:
+  image_name: antistatique/php-dev
+  build: ./php/7.2/node/9
+  cache: true
+7.2-node10:
+  image_name: antistatique/php-dev
+  build: ./php/7.2/node/10
+  cache: true
+7.2-node11:
+  image_name: antistatique/php-dev
+  build: ./php/7.2/node/11
+  cache: true
+7.3-node10:
+  image_name: antistatique/php-dev
+  build: ./php/7.3/node/10
+  cache: true
+7.3-node11:
+  image_name: antistatique/php-dev
+  build: ./php/7.3/node/11
+  cache: true
