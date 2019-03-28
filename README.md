@@ -277,7 +277,7 @@ properly set. Except install dependencies, same process is done before most of o
 ```bash
 docker-compose exec dev docker-as-drupal setup [options]
 
-  --skip-dependencies      # Do not run composer and yarn install
+  --with-dependencies      # Run composer and yarn install
 ```
 
 *db-reset* reset database using database dump made by last bootstrap command or _db-reset_
@@ -350,9 +350,9 @@ Available options are:
 ```bash
 docker-compose exec test docker-as-drupal behat [options]
 
-  --skip-dependencies      # Do not run composer and yarn install
   --skip-db-reset          # Do not reset database (to use only if database was reset just before)
   --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+  --with-dependencies      # Run composer and yarn install
   --help                   # Display behat help
   -- <...>                 # any behat valid args
 ```
@@ -365,8 +365,8 @@ Available options are:
 ```bash
 docker-compose exec test docker-as-drupal phpunit [options]
 
-  --skip-dependencies      # Do not run composer and yarn install
   --skip-default-stop      # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+  --with-dependencies      # Run composer and yarn install
   --with-db-reset          # Reset (load) database before running test
   --group=<group>          # Only runs tests from the specified group(s)
   --exclude-group=<group>  # Exclude tests from the specified group(s)
