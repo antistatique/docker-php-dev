@@ -1,5 +1,7 @@
 # Docker image for PHP+Node development
 
+[![Codeship Status](https://app.codeship.com/projects/c610aae0-33a1-0137-17d1-7aa33077477e/status?branch=dev)](https://app.codeship.com/projects/332415)
+
 ## Setup
 
 A `docker-compose.yml` file must be created in project working directory. Follow setup related to
