@@ -1,3 +1,19 @@
+5.6-node8:
+  image_name: antistatique/php-dev
+  build: ./php/5.6/node/8
+  cache: true
+5.6-node9:
+  image_name: antistatique/php-dev
+  build: ./php/5.6/node/9
+  cache: true
+5.6-node10:
+  image_name: antistatique/php-dev
+  build: ./php/5.6/node/10
+  cache: true
+5.6-node11:
+  image_name: antistatique/php-dev
+  build: ./php/5.6/node/11
+  cache: true
 7.1-node8:
   image_name: antistatique/php-dev
   build: ./php/7.1/node/8
