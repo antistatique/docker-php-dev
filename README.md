@@ -369,11 +369,13 @@ Available options are:
 ```bash
 docker-compose exec test docker-as-drupal phpunit [options]
 
-  --skip-default-stop      # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+  --skip-db-empty          # Do not empty database (drop and create)
+  --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
   --with-dependencies      # Run composer and yarn install
   --with-db-reset          # Reset (load) database before running test
   --group=<group>          # Only runs tests from the specified group(s)
   --exclude-group=<group>  # Exclude tests from the specified group(s)
+  --tests-only             # Same as --skip-db-empty
   --help                   # Display phpunit help
   -- <...>                 # any phpunit valid args
 ```
