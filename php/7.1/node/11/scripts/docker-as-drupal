@@ -169,13 +169,13 @@ function setup() {
 
   # Setup mailer
   printf "\e[1;35m* Setup mail host.\e[0m\n"
-  if ! grep -q 'swiftmailer.transport' ./web/sites/default/settings.php; then
-    echo "\$settings['swiftmailer.transport']['smtp_host'] = '${SMTP_HOST%:*}';" >> ./web/sites/default/settings.php
-    echo "\$settings['swiftmailer.transport']['smtp_port'] = '${SMTP_HOST#*:}';" >> ./web/sites/default/settings.php
-    echo "\$settings['swiftmailer.transport']['smtp_encryption'] = '0';" >> ./web/sites/default/settings.php
+  if ! grep -Eq "\\\$config\['swiftmailer.transport'\]\['(smtp_host|smtp_port|smtp_encryption)'\]" ./web/sites/default/settings.php; then
+    echo "\$config['swiftmailer.transport']['smtp_host'] = '${SMTP_HOST%:*}';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_port'] = '${SMTP_HOST#*:}';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_encryption'] = '0';" >> ./web/sites/default/settings.php
   else
-    sed -ri -e "s@^\\\$settings\['swiftmailer.transport'\]\['smtp_host'\].+;@\\\$settings\['swiftmailer.transport'\]\['smtp_host'\] = '${SMTP_HOST%:*}';@g" ./web/sites/default/settings.php
-    sed -ri -e "s@^\\\$settings\['swiftmailer.transport'\]\['smtp_port'\].+;@\\\$settings\['swiftmailer.transport'\]\['smtp_port'\] = '${SMTP_HOST#*:}';@g" ./web/sites/default/settings.php
+    sed -ri -e "s@^\\\$config\['swiftmailer.transport'\]\['smtp_host'\].+;@\\\$config\['swiftmailer.transport'\]\['smtp_host'\] = '${SMTP_HOST%:*}';@g" ./web/sites/default/settings.php
+    sed -ri -e "s@^\\\$config\['swiftmailer.transport'\]\['smtp_port'\].+;@\\\$config\['swiftmailer.transport'\]\['smtp_port'\] = '${SMTP_HOST#*:}';@g" ./web/sites/default/settings.php
   fi
 
   # Setup directory for private files
