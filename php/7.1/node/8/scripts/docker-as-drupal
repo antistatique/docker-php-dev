@@ -48,7 +48,7 @@ function print_help() {
     --skip-db-reset          # Do not reset database using SQL dump (only when --skip-install)
     --skip-styleguide-build  # Do not run yarn build
     --with-default-content   # Load default content (force reset database when --skip-install)
-    --install-only           # Same ass --skip-dependencies --skip-styleguide-build
+    --install-only           # Same as --skip-dependencies --skip-styleguide-build
 
   * setup
 
@@ -110,11 +110,13 @@ function print_help() {
 
     Run phpunits tests.
 
-    --skip-default-stop      # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+    --skip-db-empty          # Do not empty database (drop and create)
+    --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
     --with-dependencies      # Run composer and yarn install
     --with-db-reset          # Reset (load) database before running test
     --group=<group>          # Only runs tests from the specified group(s)
     --exclude-group=<group>  # Exclude tests from the specified group(s)
+    --tests-only             # Same as --skip-db-empty
     --help                   # Display phpunit help
     -- <...>                 # any phpunit valid args
 
@@ -142,6 +144,8 @@ function print_help() {
 # Setup settings.php file, database connection and directory for private files
 function setup() {
   printf "\e[1;35m* Update settings.php file.\e[0m\n"
+
+  # Be sure to have a settings.php file with correct rights.
   mkdir -p ./web/sites/default
   chmod 775 ./web/sites/default
   if [ ! -f ./web/sites/default/settings.php ]; then
@@ -153,8 +157,10 @@ function setup() {
   sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
 
   # Set Hash Salt
-  : ${SITE_HASH_SALT:=$(drush php-eval 'echo \Drupal\Component\Utility\Crypt::randomBytesBase64(55) . "\n";')}
-  sed -ri -e "s@^\\\$settings\['hash_salt'\].+;@\\\$settings\['hash_salt'\] = '$SITE_HASH_SALT';@g" ./web/sites/default/settings.php
+  if ! grep -Eq "\\\$settings\['hash_salt'\] = '.+'" ./web/sites/default/settings.php; then
+    : ${SITE_HASH_SALT:=$(drush php-eval -q 'echo \Drupal\Component\Utility\Crypt::randomBytesBase64(55) . "\n";')}
+    sed -ri -e "s@^\\\$settings\['hash_salt'\].+;@\\\$settings\['hash_salt'\] = '$SITE_HASH_SALT';@g" ./web/sites/default/settings.php
+  fi
 
   # Use DATABASE_URL to populate database config
   if ! grep -q 'convertDbUrlToConnectionInfo' ./web/sites/default/settings.php; then
@@ -162,7 +168,15 @@ function setup() {
   fi
 
   # Setup mailer
-  enable_mail_host
+  printf "\e[1;35m* Setup mail host.\e[0m\n"
+  if ! grep -Eq "\\\$config\['swiftmailer.transport'\]\['(smtp_host|smtp_port|smtp_encryption)'\]" ./web/sites/default/settings.php; then
+    echo "\$config['swiftmailer.transport']['smtp_host'] = '${SMTP_HOST%:*}';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_port'] = '${SMTP_HOST#*:}';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_encryption'] = '0';" >> ./web/sites/default/settings.php
+  else
+    sed -ri -e "s@^\\\$config\['swiftmailer.transport'\]\['smtp_host'\].+;@\\\$config\['swiftmailer.transport'\]\['smtp_host'\] = '${SMTP_HOST%:*}';@g" ./web/sites/default/settings.php
+    sed -ri -e "s@^\\\$config\['swiftmailer.transport'\]\['smtp_port'\].+;@\\\$config\['swiftmailer.transport'\]\['smtp_port'\] = '${SMTP_HOST#*:}';@g" ./web/sites/default/settings.php
+  fi
 
   # Setup directory for private files
   if [ ! -z "$PRIVATE_FILES" ]; then
@@ -283,17 +297,6 @@ function import_drupal_config() {
   drush cache-rebuild
 }
 
-# Update swiftmailer config to use host from environment
-function enable_mail_host() {
-  if [ ! -z "$SMTP_HOST" ] && drush pm-list --field=name --status=enabled | grep -q 'swiftmailer'; then
-    printf "\e[1;35m* Setup mail host.\e[0m\n"
-
-    drush cset swiftmailer.transport smtp_host "${SMTP_HOST%:*}" -y
-    drush cset swiftmailer.transport smtp_port "${SMTP_HOST#*:}" -y
-    drush cset swiftmailer.transport smtp_encryption '0' -y
-  fi
-}
-
 # Load default content in database
 function enable_default_content() {
   (
@@ -395,9 +398,6 @@ if [ "$1" = "bootstrap" ]; then
     # Load config
     import_drupal_config
 
-    # Setup mailer
-    enable_mail_host
-
     # Save database dump after install
     database_dump
 
@@ -407,9 +407,6 @@ if [ "$1" = "bootstrap" ]; then
 
     # Reset the database
     database_reset
-
-    # Setup mailer
-    enable_mail_host
 
   else
     printf "\e[1;35m* Skip install Drupal from scratch.\e[0m\n"
@@ -486,9 +483,6 @@ elif [ "$1" = "db-reset" ]; then
   # Reset database without default content
   database_reset
 
-  # Setup mailer (was reset when loaded back config)
-  enable_mail_host
-
   # Save database dump after reset (including drupal config update)
   if [ $UPDATE_DATABASE_DUMP -eq 1 ]; then
     database_dump
@@ -526,6 +520,9 @@ elif [ "$1" = "db-dump" ]; then
     shift
   done
 
+  # Setup settings & Co.
+  setup
+
   # Save database dump
   database_dump "$FILE_PATH"
 
@@ -555,11 +552,11 @@ elif [ "$1" = "db-restore" ]; then
     shift
   done
 
+  # Setup settings & Co.
+  setup
+
   # Reset database without default content
   database_reset "$FILE_PATH"
-
-  # Setup mailer (was reset when loaded back config)
-  enable_mail_host
 
 #
 # RUN PHP SERVER
@@ -599,12 +596,9 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
   # Setup settings & Co.
   setup
 
+  # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
-    # Reset database
     database_reset
-
-    # Setup mailer (was reset when loaded back config)
-    enable_mail_host
   fi
 
   # Load default content (then disable module)
@@ -659,12 +653,9 @@ elif [ "$1" = "apache-server" ]; then
   # Setup settings & Co.
   setup
 
+  # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
-    # Reset database
     database_reset
-
-    # Setup mailer (was reset when loaded back config)
-    enable_mail_host
   fi
 
   # Load default content (then disable module)
@@ -726,12 +717,9 @@ elif [ "$1" = "behat" ]; then
   # Setup settings & Co.
   setup
 
+  # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
-    # Reset database
     database_reset
-
-    # Setup mailer (was reset when loaded back config)
-    enable_mail_host
   fi
 
   # Load default content
@@ -772,6 +760,7 @@ elif [ "$1" = "phpunit" ]; then
 
   SKIP_DEPENDENCIES=1
   SKIP_DB_RESET=1
+  SKIP_DB_EMPTY=0
   SKIP_DEFAULT_STOP=0
   PHPUNIT_GROUPS=()
   PHPUNIT_EXCLUDE_GROUPS=()
@@ -791,8 +780,16 @@ elif [ "$1" = "phpunit" ]; then
       --exclude-group=*)
         PHPUNIT_EXCLUDE_GROUPS+=("--exclude-group ${1#*=}")
         ;;
+      --skip-db-empty)
+        SKIP_DB_EMPTY=1
+        ;;
       --skip-default-stops)
         SKIP_DEFAULT_STOP=1
+        ;;
+      --tests-only|--only-tests)
+        SKIP_DEPENDENCIES=1
+        SKIP_DB_RESET=1
+        SKIP_DB_EMPTY=1
         ;;
       --help)
         print_help
@@ -837,11 +834,9 @@ elif [ "$1" = "phpunit" ]; then
     # Reset database
     database_reset
 
-    # Setup mailer (was reset when loaded back config)
-    enable_mail_host
-
-  else
+  elif [ $SKIP_DB_EMPTY -eq 0 ]; then
     # Ensure to have an empty database
+    printf "\e[1;35m* Empty database.\e[0m\n"
     drush sql:create -y
   fi
 
@@ -894,12 +889,12 @@ elif [ "$1" = "run" ]; then
     shift
   done
 
-  if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
-    # Reset database
-    database_reset
+  # Setup settings & Co.
+  setup
 
-    # Setup mailer (was reset when loaded back config)
-    enable_mail_host
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    database_reset
   fi
 
   # Load default content (then disable module)
@@ -1001,7 +996,7 @@ elif [ "$1" = "quality-check" ]; then
 #
 # HELP
 #
-elif [ "$1" = "run" ]; then
+elif [ "$1" = "--help" ]; then
   print_help
   exit $?
 
