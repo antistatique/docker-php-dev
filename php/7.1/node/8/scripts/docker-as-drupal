@@ -397,8 +397,15 @@ if [ "$1" = "bootstrap" ]; then
       drush config-set system.site uuid "$SITE_UUID" -y
     )
 
+    # First attemps to update database (can fail)
+    drush updatedb -y || true
+
     # Load config
     import_drupal_config
+
+    # Final attempt to update database and entities
+    drush updatedb -y
+    drush entity:update -y
 
     # Save database dump after install
     database_dump
