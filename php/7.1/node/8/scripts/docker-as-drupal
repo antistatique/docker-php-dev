@@ -167,6 +167,11 @@ function setup() {
     echo '$databases["default"]["default"] = \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo(getenv("DATABASE_URL"), DRUPAL_ROOT);' >> ./web/sites/default/settings.php
   fi
 
+  # Disabling "automated cron"
+  if ! grep -Eq "\\\$config\['automated_cron.settings'\]\['interval'\]" ./web/sites/default/settings.php; then
+    echo "\$config['automated_cron.settings']['interval'] = '0';" >> ./web/sites/default/settings.php
+  fi
+
   # Setup mailer
   printf "\e[1;35m* Setup mail host.\e[0m\n"
   if ! grep -Eq "\\\$config\['swiftmailer.transport'\]\['(smtp_host|smtp_port|smtp_encryption)'\]" ./web/sites/default/settings.php; then
@@ -289,9 +294,6 @@ function import_drupal_config() {
   # Fix Sitename bugged keep display "| Drupal"
   # @see https://www.drupal.org/node/2851877
   drush -q ev '\Drupal::languageManager()->getLanguageConfigOverrideStorage("fr")->delete("system.site");' >/dev/null 2>&1 || true
-
-  # Disabling "automated cron"
-  drush -q config-set automated_cron.settings interval 0 -y >/dev/null 2>&1 || true
 
   # Rebuild cache
   drush cache-rebuild
