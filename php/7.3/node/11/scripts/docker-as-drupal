@@ -689,6 +689,7 @@ elif [ "$1" = "behat" ]; then
   shift
 
   SKIP_DEPENDENCIES=1
+  SKIP_STYLEGUIDE=1
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
   BEHAT_ARGV=()
@@ -697,6 +698,9 @@ elif [ "$1" = "behat" ]; then
     case "$1" in
       --with-dependencies)
         SKIP_DEPENDENCIES=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
         ;;
       --skip-db-reset)
         SKIP_DB_RESET=1
@@ -741,6 +745,11 @@ elif [ "$1" = "behat" ]; then
 
   # Rebuild Drupal cache
   drush cache-rebuild
+
+  # Build styleguide
+  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
 
   # create log directory
   mkdir -p $BEHAT_OUTPUT_DIRECTORY
