@@ -575,6 +575,7 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
 
   SKIP_DB_RESET=1
   SKIP_DEFAULT_CONTENT=1
+  SKIP_STYLEGUIDE=1
   TEST_SERVER_ARGS=()
 
   while [ $# -gt 0 ]; do
@@ -584,6 +585,9 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
         ;;
       --with-default-content)
         SKIP_DEFAULT_CONTENT=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
         ;;
       *:*)
         TEST_SERVER_PORT=${1#*:}
@@ -616,6 +620,11 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
     disable_default_content
   fi
 
+  # Build styleguide
+  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
   drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT ${TEST_SERVER_ARGS[@]}
@@ -628,6 +637,7 @@ elif [ "$1" = "apache-server" ]; then
 
   SKIP_DB_RESET=1
   SKIP_DEFAULT_CONTENT=1
+  SKIP_STYLEGUIDE=1
   TEST_SERVER_CACHE=0
   TEST_SERVER_ARGS=()
 
@@ -638,6 +648,9 @@ elif [ "$1" = "apache-server" ]; then
         ;;
       --with-default-content)
         SKIP_DEFAULT_CONTENT=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
         ;;
       --cache)
         TEST_SERVER_CACHE=1
@@ -676,6 +689,11 @@ elif [ "$1" = "apache-server" ]; then
   # Disable opache file timestemps check
   if [ $TEST_SERVER_CACHE -eq 1 ]; then
     echo 'opcache.validate_timestamps=0' >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+  fi
+
+  # Build styleguide
+  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
   fi
 
   # Run server
