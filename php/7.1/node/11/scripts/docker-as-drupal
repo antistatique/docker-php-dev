@@ -1027,6 +1027,8 @@ elif [ "$1" = "quality-check" ]; then
     elif [ $FAIL_ON_PHPCPD -eq 1 ] && [ $phpcpd_exit -gt 0 ]; then
       exit $phpcpd_exit
     fi
+
+    exit 0
   )
 
 #
