@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -e
+
+# initialize web server container
+if [ "$1" = "apache2-foreground" ]; then
+  cron
+fi
+
+exec "$@"
