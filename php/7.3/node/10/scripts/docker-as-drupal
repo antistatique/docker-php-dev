@@ -281,9 +281,11 @@ function import_drupal_config() {
 
   (
     set +e
+    cat /dev/null > $LOG_DIR/config-import.log
 
     attempt=0
-    until drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR"; do
+    until cat $LOG_DIR/config-import.log | grep "configuration was imported successfully"; do
+      drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR" 2>&1 | tee -a $LOG_DIR/config-import.log
       attempt=$(( attempt+1 ))
       if [ "$attempt" -ge 4 ]; then
         exit 1
