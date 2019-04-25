@@ -37,6 +37,11 @@ RUN set -ex; \
     zip \
   ; \
   \
+  pecl install xdebug; \
+  docker-php-ext-enable \
+    xdebug \
+  ; \
+  \
   # reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
   apt-mark auto '.*' > /dev/null; \
   apt-mark manual $savedAptMark; \
