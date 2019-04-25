@@ -110,10 +110,13 @@ function print_help() {
 
     Run phpunits tests.
 
-    --skip-db-empty          # Do not empty database (drop and create)
+    --skip-db-empty          # Do not empty database (drop and create), but reset it if --skip-db-reset
+                             # is not used
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before),
+                             # only valid with --skip-db-empty or --with-defaut-content
     --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+    --with-default-content   # Load default content (force reset database if --skip-db-reset is not used)
     --with-dependencies      # Run composer and yarn install
-    --with-db-reset          # Reset (load) database before running test
     --group=<group>          # Only runs tests from the specified group(s)
     --exclude-group=<group>  # Exclude tests from the specified group(s)
     --tests-only             # Same as --skip-db-empty
@@ -756,7 +759,7 @@ elif [ "$1" = "behat" ]; then
   fi
 
   # Load default content
-  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] || [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
   fi
 
@@ -797,9 +800,10 @@ elif [ "$1" = "phpunit" ]; then
   shift
 
   SKIP_DEPENDENCIES=1
-  SKIP_DB_RESET=1
+  SKIP_DB_RESET=0
   SKIP_DB_EMPTY=0
   SKIP_DEFAULT_STOP=0
+  SKIP_DEFAULT_CONTENT=1
   PHPUNIT_GROUPS=()
   PHPUNIT_EXCLUDE_GROUPS=()
   PHPUNIT_ARGV=()
@@ -809,8 +813,9 @@ elif [ "$1" = "phpunit" ]; then
       --with-dependencies)
         SKIP_DEPENDENCIES=0
         ;;
-      --with-db-reset)
-        SKIP_DB_RESET=0
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        SKIP_DB_EMPTY=1
         ;;
       --group=*)
         PHPUNIT_GROUPS+=("--group ${1#*=}")
@@ -820,6 +825,9 @@ elif [ "$1" = "phpunit" ]; then
         ;;
       --skip-db-empty)
         SKIP_DB_EMPTY=1
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
         ;;
       --skip-default-stops)
         SKIP_DEFAULT_STOP=1
@@ -868,14 +876,19 @@ elif [ "$1" = "phpunit" ]; then
   # Setup settings & Co.
   setup
 
-  if [ $SKIP_DB_RESET -eq 0 ]; then
-    # Reset database
-    database_reset
-
-  elif [ $SKIP_DB_EMPTY -eq 0 ]; then
-    # Ensure to have an empty database
+  # Ensure to have an empty database
+  if [ $SKIP_DB_EMPTY -eq 0 ]; then
     printf "\e[1;35m* Empty database.\e[0m\n"
     drush sql:create -y
+
+  # Reset database
+  elif [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+    database_reset
+  fi
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
   fi
 
   # Ensure log directory exists
