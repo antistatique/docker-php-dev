@@ -284,6 +284,8 @@ function import_drupal_config() {
 
   (
     set +e
+
+    mkdir -p $LOG_DIR
     cat /dev/null > $LOG_DIR/config-import.log
 
     attempt=0
