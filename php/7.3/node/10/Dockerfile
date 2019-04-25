@@ -19,6 +19,7 @@ RUN set -ex; \
   # install the installation dependencies we need
   apt-get update; \
   apt-get install -y --no-install-recommends \
+    bc \
     gnupg \
     libjpeg-dev \
     libpng-dev \
@@ -37,10 +38,13 @@ RUN set -ex; \
     zip \
   ; \
   \
-  pecl install xdebug; \
-  docker-php-ext-enable \
-    xdebug \
-  ; \
+  # install xdebug for PHP 7.x
+  if [ $(echo "7.3 >= 7.0" | bc -l) -eq 1 ]; then \
+    pecl install xdebug; \
+    docker-php-ext-enable \
+      xdebug \
+    ; \
+  fi; \
   \
   # reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
   apt-mark auto '.*' > /dev/null; \
