@@ -21,6 +21,7 @@ set -e
 : ${SIMPLETEST_DB:="$DATABASE_URL"}
 : ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
 : ${TEST_SERVER_PORT:="8888"}
+: ${CONFIG_IMPORT_ATTEMPTS:="5"}
 
 # Script variables
 BEHAT_OUTPUT_DIRECTORY="${LOG_DIR}/behat"
@@ -288,13 +289,14 @@ function import_drupal_config() {
     mkdir -p $LOG_DIR
     cat /dev/null > $LOG_DIR/config-import.log
 
-    attempt=0
+    attempt=1
     until cat $LOG_DIR/config-import.log | grep "configuration was imported successfully" > /dev/null; do
-      drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR" 2>&1 | tee -a $LOG_DIR/config-import.log
-      attempt=$(( attempt+1 ))
-      if [ "$attempt" -ge 4 ]; then
+      if [ "$attempt" -ge "$CONFIG_IMPORT_ATTEMPTS" ]; then
+        printf "\e[1;35m* Exit due to too many configuration import attempts.\e[0m\n"
         exit 1
       fi
+      drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR" 2>&1 | tee -a $LOG_DIR/config-import.log
+      attempt=$(( attempt+1 ))
     done
   )
 
