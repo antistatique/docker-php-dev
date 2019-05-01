@@ -64,6 +64,7 @@ SIMPLETEST_BASE_URL           # Default to "http://test:8888"
 SIMPLETEST_DB                 # Default to DATABASE_URL, can be overwrited
 SYMFONY_DEPRECATIONS_HELPER   # Default to weak, can be overwrited
 TEST_SERVER_PORT              # Default to 8888
+CONFIG_IMPORT_ATTEMPTS        # Number of attemps to run config:import (default to 5)
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like
@@ -372,10 +373,13 @@ Available options are:
 ```bash
 docker-compose exec test docker-as-drupal phpunit [options]
 
-  --skip-db-empty          # Do not empty database (drop and create)
+  --skip-db-reset          # Do not reset database (to use only if database was reset just before),
+                           # only valid with --skip-db-empty or --with-defaut-content
   --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+  --with-default-content   # Load default content (force reset database if --skip-db-reset is not used)
+  --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+  --with-default-content   # Load default content (force reset database if --skip-db-reset is not used)
   --with-dependencies      # Run composer and yarn install
-  --with-db-reset          # Reset (load) database before running test
   --group=<group>          # Only runs tests from the specified group(s)
   --exclude-group=<group>  # Exclude tests from the specified group(s)
   --tests-only             # Same as --skip-db-empty
