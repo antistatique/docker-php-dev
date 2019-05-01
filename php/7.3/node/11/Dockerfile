@@ -57,27 +57,41 @@ RUN set -ex; \
     | sort -u \
     | xargs -rt apt-mark manual; \
   \
-  # install running dependencies
-  curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - ; \
-  echo "deb http://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list; \
+  # add node related repositories
+  if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
+    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - ; \
+    echo "deb http://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list; \
+    \
+    curl -sL https://deb.nodesource.com/setup_${NODE_MAJOR_VERSION}.x | bash - ; \
+  fi; \
   \
-  curl -sL https://deb.nodesource.com/setup_${NODE_MAJOR_VERSION}.x | bash - ; \
-  \
+  # update list of packages
   apt-get update; \
+  \
+  # install php running dependencies
   apt-get install -y --no-install-recommends \
     git \
     imagemagick \
     libpng-dev \
     mysql-client \
     netcat \
-    nodejs \
-    python2.7 \
     unzip \
     vim \
     webp \
-    yarn \
   ; \
   \
+  # install node related dependencies
+  if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
+    apt-get install -y --no-install-recommends \
+      nodejs \
+      python2.7 \
+      yarn \
+    ; \
+    \
+    npm config set --global python python2.7; \
+  fi; \
+  \
+  # cleanup
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
   rm -rf /var/lib/apt/lists/*
 
@@ -103,12 +117,6 @@ RUN { \
     echo 'date.timezone="Europe/Zurich"'; \
     echo 'memory_limit=${PHP_MEMORY_LIMIT}'; \
   } > /usr/local/etc/php/conf.d/docker.ini
-
-# setup npm
-RUN npm config set --global python python2.7
-
-# setup cron
-RUN touch /var/log/cron.log
 
 # install Composer.
 RUN curl -sS https://getcomposer.org/installer | php && \

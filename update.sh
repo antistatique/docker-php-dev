@@ -16,19 +16,16 @@ while [ $# -gt 0 ]; do
        echo " "
        echo "options:"
        echo "-h, --help                show brief help"
-       echo "-b, --build=VERSION       VERSION is optional, all images are build by default; set a VERSION like '7.2-node8', or 'latest'"
-       echo "--publish=VERSION         set a VERSION like '7.2-node8', 'all', or 'latest'; publish also build images"
+       echo "-b, --build=VERSION       VERSION is optional, all images are build by default; set a VERSION like '7.2-node8'"
+       echo "--publish=VERSION         set a VERSION like '7.2-node8' or 'all'; publish also build images"
        echo "--no-cache"               do not pull image from repository previously to build it
        echo "--clean"                  clean all local tags of the imahe
-       echo "--latest                  shortcut to build latest version (--build=latest)"
        exit 0
        ;;
-    -b|--latest|--build*)
+    -b|--build*)
       VERSION_TO_BUILD="${1#*=}"
       if [ "$1" = "--build" ] || [ "$1" = "-b" ]; then
         VERSION_TO_BUILD="all"
-      elif [ "$VERSION_TO_BUILD" = "latest" ] || [ "$1" = "--latest" ]; then
-        VERSION_TO_BUILD="$PHP_LAST_VERSION-node$NODE_LAST_VERSION"
       fi
       VERSION_TO_UPDATE=$VERSION_TO_BUILD
       ;;
@@ -37,8 +34,6 @@ while [ $# -gt 0 ]; do
       if [ -z "$VERSION_TO_PUBLISH" ]; then
         echo "VERSION to publish must be set"
         exit 1
-      elif [ "$VERSION_TO_PUBLISH" = "latest" ]; then
-        VERSION_TO_PUBLISH="$PHP_LAST_VERSION-node$NODE_LAST_VERSION"
       fi
       VERSION_TO_BUILD=$VERSION_TO_PUBLISH
       VERSION_TO_UPDATE=$VERSION_TO_PUBLISH
@@ -62,8 +57,10 @@ done
 function tag {
   if [ "$1" = "latest" ]; then
     echo "latest"
-  else
+  elif [ ! -z "$2" ]; then
     echo "$1-node$2"
+  else
+    echo "$1"
   fi
 }
 
@@ -82,7 +79,11 @@ function build {
     TAG=$(tag $1 $2)
 
     echo "** build antistatique/php-dev:$TAG"
-    cd ./php/$1/node/$2/
+    if [ -z "$2" ]; then
+      cd ./php/$1/
+    else
+      cd ./php/$1/node/$2/
+    fi
     docker build -t antistatique/php-dev:$TAG .
   )
 }
@@ -97,59 +98,69 @@ function publish {
   )
 }
 
+function process {
+  phpVersion=$1
+  nodeVersion=$2
+  tag=$(tag $1 $2)
+
+  if [ "$VERSION_TO_UPDATE" != "all" ] && [ "$VERSION_TO_UPDATE" != "$tag" ]; then
+    echo "** skip php-dev:$tag"
+    continue
+  fi
+
+  echo "** update files for php-dev:$tag"
+
+  if [ -z "$nodeVersion" ]; then
+    DOCKERFILE_PATH=$(pwd)/php/$phpVersion/Dockerfile
+  else
+    DOCKERFILE_PATH=$(pwd)/php/$phpVersion/node/$nodeVersion/Dockerfile
+  fi
+  DOCKERFILE_DIR=$(dirname $DOCKERFILE_PATH)
+
+  mkdir -p $DOCKERFILE_DIR/scripts
+
+  # cleanup removed scripts
+  for file in `diff <(cd $(pwd)/scripts; find -s . -type f) <(cd $DOCKERFILE_DIR/scripts; find -s .  -type f) | grep "^>" | awk -F/ '{print "'"$DOCKERFILE_DIR/scripts/"'" $2}'`; do
+    (
+      set -e
+
+      git rm -f -q --ignore-unmatch $file
+      rm -f $file
+      echo "removed $file"
+    )
+  done
+
+  # copy Dockerfile template and scripts
+  cp ./Dockerfile $DOCKERFILE_PATH
+  cp ./scripts/* $DOCKERFILE_DIR/scripts/
+  chmod 774 $DOCKERFILE_DIR/scripts/*
+
+  # update Dockerfile
+  sed -i '' \
+    -e "s!%%PHP_VERSION%%!${phpVersion}!g" \
+    -e "s!%%NODE_VERSION%%!${nodeVersion:-"false"}!g" \
+    "$DOCKERFILE_PATH"
+
+  # build docker imge if required
+  if [ "$VERSION_TO_BUILD" = "all" ] || [ "$VERSION_TO_BUILD" = "$tag" ]; then
+    if [ "$USE_CACHE" -gt 0 ]; then
+      pull $phpVersion $nodeVersion
+    fi
+    build $phpVersion $nodeVersion
+  fi
+
+  # publish docker imge if required
+  if [ "$VERSION_TO_PUBLISH" = "all" ] || [ "$VERSION_TO_PUBLISH" = "$tag" ]; then
+    publish $phpVersion $nodeVersion
+  fi
+}
+
 
 # Go through versions
 for phpVersion in `find ./php/* -maxdepth 1 -prune -type d -exec basename {} \; | sort -n`; do
+  process $phpVersion
   for nodeVersion in `find ./php/$phpVersion/node/* -maxdepth 1 -prune -type d -exec basename {} \; | sort -n`; do
-    if [ "$VERSION_TO_UPDATE" != "all" ] && [ "$VERSION_TO_UPDATE" != "$phpVersion-node$nodeVersion" ]; then
-      echo "** skip php-dev:$phpVersion-node$nodeVersion"
-      continue
-    fi
-
-    echo "** update files for php-dev:$phpVersion-node$nodeVersion"
-
-    DOCKERFILE_PATH=$(pwd)/php/$phpVersion/node/$nodeVersion/Dockerfile
-    DOCKERFILE_DIR=$(dirname $DOCKERFILE_PATH)
-
-    mkdir -p $DOCKERFILE_DIR/scripts
-
-    # cleanup removed scripts
-    for file in `diff <(cd $(pwd)/scripts; find -s . -type f) <(cd $DOCKERFILE_DIR/scripts; find -s .  -type f) | grep "^>" | awk -F/ '{print "'"$DOCKERFILE_DIR/scripts/"'" $2}'`; do
-      (
-        set -e
-
-        git rm -f -q --ignore-unmatch $file
-        rm -f $file
-        echo "removed $file"
-      )
-    done
-
-    # copy Dockerfile template and scripts
-    cp ./Dockerfile $DOCKERFILE_PATH
-    cp ./scripts/* $DOCKERFILE_DIR/scripts/
-    chmod 774 $DOCKERFILE_DIR/scripts/*
-
-    # update Dockerfile
-    sed -i '' \
-      -e "s!%%PHP_VERSION%%!${phpVersion}!g" \
-      -e "s!%%NODE_VERSION%%!${nodeVersion}!g" \
-      "$DOCKERFILE_PATH"
-
-    # Add to git
-    git add $DOCKERFILE_PATH
-
-    # build docker imge if required
-    if [ "$VERSION_TO_BUILD" = "all" ] || [ "$VERSION_TO_BUILD" = "$phpVersion-node$nodeVersion" ]; then
-      if [ "$USE_CACHE" -gt 0 ]; then
-        pull $phpVersion $nodeVersion
-      fi
-      build $phpVersion $nodeVersion
-    fi
-
-    # publish docker imge if required
-    if [ "$VERSION_TO_PUBLISH" = "all" ] || [ "$VERSION_TO_PUBLISH" = "$phpVersion-node$nodeVersion" ]; then
-      publish $phpVersion $nodeVersion
-    fi
+    process $phpVersion $nodeVersion
   done
 done
 

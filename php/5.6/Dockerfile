@@ -1,7 +1,7 @@
 FROM php:5.6-apache
 
 ENV APACHE_DOCUMENT_ROOT /var/www/web
-ENV NODE_MAJOR_VERSION 8
+ENV NODE_MAJOR_VERSION false
 
 ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
 

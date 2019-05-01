@@ -222,12 +222,17 @@ function drupal_not_installed() {
   ! drupal_is_installed
 }
 
+# Return TRUE if yarn is installed
+function yarn_is_installed() {
+  command -v yarn > /dev/null 2>&1
+}
+
 # Install dependencies
 function install_dependencies() {
   printf "\e[1;35m* Install dependencies.\e[0m\n"
 
   composer install --prefer-dist --no-progress --no-suggest --no-interaction
-  if [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
+  if yarn_is_installed && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
     yarn install --no-progress --non-interactive
   fi
 }
@@ -440,7 +445,7 @@ if [ "$1" = "bootstrap" ]; then
   fi
 
   # Build styleguide assets
-  if [ $SKIP_STYLEGUIDE -eq 0 ] && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ] && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
     yarn build --production
   fi
 
@@ -633,7 +638,7 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
   fi
 
   # Build styleguide
-  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
     yarn build --production
   fi
 
@@ -704,7 +709,7 @@ elif [ "$1" = "apache-server" ]; then
   fi
 
   # Build styleguide
-  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
     yarn build --production
   fi
 
@@ -777,7 +782,7 @@ elif [ "$1" = "behat" ]; then
   drush cache-rebuild
 
   # Build styleguide
-  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
     yarn build --production
   fi
 

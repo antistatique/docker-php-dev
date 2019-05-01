@@ -4,6 +4,13 @@
     - name: php 5.6
       type: serial
       steps:
+        - name: only
+          type: push
+          service: 5.6
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 5.6
+          encrypted_dockercfg_path: docker.cfg.enc
         - name: node 8
           type: push
           service: 5.6-node8
@@ -14,6 +21,13 @@
     - name: php 7.0
       type: serial
       steps:
+        - name: only
+          type: push
+          service: 7.0
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.0
+          encrypted_dockercfg_path: docker.cfg.enc
         - name: node 8
           type: push
           service: 7.0-node8
@@ -31,6 +45,13 @@
     - name: php 7.1
       type: serial
       steps:
+        - name: only
+          type: push
+          service: 7.1
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.1
+          encrypted_dockercfg_path: docker.cfg.enc
         - name: node 8
           type: push
           service: 7.1-node8
@@ -62,6 +83,13 @@
     - name: php 7.2
       type: serial
       steps:
+        - name: only
+          type: push
+          service: 7.2
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.2
+          encrypted_dockercfg_path: docker.cfg.enc
         - name: node 8
           type: push
           service: 7.2-node8
@@ -93,6 +121,13 @@
     - name: php 7.3
       type: serial
       steps:
+        - name: only
+          type: push
+          service: 7.3
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.3
+          encrypted_dockercfg_path: docker.cfg.enc
         - name: node 10
           type: push
           service: 7.3-node10
