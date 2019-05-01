@@ -21,10 +21,11 @@ set -e
 : ${SIMPLETEST_DB:="$DATABASE_URL"}
 : ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
 : ${TEST_SERVER_PORT:="8888"}
+: ${CONFIG_IMPORT_ATTEMPTS:="5"}
 
 # Script variables
 BEHAT_OUTPUT_DIRECTORY="${LOG_DIR}/behat"
-BROWSERTEST_OUTPUT_DIRECTORY="${LOG_DIR}/phpunit"
+BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
 DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
 DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
@@ -110,10 +111,13 @@ function print_help() {
 
     Run phpunits tests.
 
-    --skip-db-empty          # Do not empty database (drop and create)
+    --skip-db-empty          # Do not empty database (drop and create), but reset it if --skip-db-reset
+                             # is not used
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before),
+                             # only valid with --skip-db-empty or --with-defaut-content
     --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+    --with-default-content   # Load default content (force reset database if --skip-db-reset is not used)
     --with-dependencies      # Run composer and yarn install
-    --with-db-reset          # Reset (load) database before running test
     --group=<group>          # Only runs tests from the specified group(s)
     --exclude-group=<group>  # Exclude tests from the specified group(s)
     --tests-only             # Same as --skip-db-empty
@@ -239,10 +243,10 @@ function database_reset() {
     fi
   elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
-    exit 1
+    return 1
   else
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME bootstrap' first.\e[0m\n"
-    exit 1
+    return 1
   fi
 
   # Drop and create database
@@ -260,6 +264,9 @@ function database_reset() {
   # Final attempt to update database and entities
   drush updatedb -y
   drush entity:update -y
+
+  # Set Drupal install env to TRUE
+  DRUPAL_IS_INSTALLED=1
 }
 
 # Dump database
@@ -282,12 +289,17 @@ function import_drupal_config() {
   (
     set +e
 
-    attempt=0
-    until drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR"; do
-      attempt=$(( attempt+1 ))
-      if [ "$attempt" -ge 4 ]; then
+    mkdir -p $LOG_DIR
+    cat /dev/null > $LOG_DIR/config-import.log
+
+    attempt=1
+    until cat $LOG_DIR/config-import.log | grep "configuration was imported successfully" > /dev/null; do
+      if [ "$attempt" -ge "$CONFIG_IMPORT_ATTEMPTS" ]; then
+        printf "\e[1;35m* Exit due to too many configuration import attempts.\e[0m\n"
         exit 1
       fi
+      drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR" 2>&1 | tee -a $LOG_DIR/config-import.log
+      attempt=$(( attempt+1 ))
     done
   )
 
@@ -611,11 +623,11 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
-    database_reset
+    database_reset || true
   fi
 
   # Load default content (then disable module)
-  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
     enable_default_content
     disable_default_content
   fi
@@ -677,11 +689,11 @@ elif [ "$1" = "apache-server" ]; then
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
-    database_reset
+    database_reset || true
   fi
 
   # Load default content (then disable module)
-  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
     enable_default_content
     disable_default_content
   fi
@@ -754,7 +766,7 @@ elif [ "$1" = "behat" ]; then
   fi
 
   # Load default content
-  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] || [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
   fi
 
@@ -795,9 +807,10 @@ elif [ "$1" = "phpunit" ]; then
   shift
 
   SKIP_DEPENDENCIES=1
-  SKIP_DB_RESET=1
+  SKIP_DB_RESET=0
   SKIP_DB_EMPTY=0
   SKIP_DEFAULT_STOP=0
+  SKIP_DEFAULT_CONTENT=1
   PHPUNIT_GROUPS=()
   PHPUNIT_EXCLUDE_GROUPS=()
   PHPUNIT_ARGV=()
@@ -807,8 +820,9 @@ elif [ "$1" = "phpunit" ]; then
       --with-dependencies)
         SKIP_DEPENDENCIES=0
         ;;
-      --with-db-reset)
-        SKIP_DB_RESET=0
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        SKIP_DB_EMPTY=1
         ;;
       --group=*)
         PHPUNIT_GROUPS+=("--group ${1#*=}")
@@ -818,6 +832,9 @@ elif [ "$1" = "phpunit" ]; then
         ;;
       --skip-db-empty)
         SKIP_DB_EMPTY=1
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
         ;;
       --skip-default-stops)
         SKIP_DEFAULT_STOP=1
@@ -866,14 +883,27 @@ elif [ "$1" = "phpunit" ]; then
   # Setup settings & Co.
   setup
 
-  if [ $SKIP_DB_RESET -eq 0 ]; then
-    # Reset database
-    database_reset
-
-  elif [ $SKIP_DB_EMPTY -eq 0 ]; then
-    # Ensure to have an empty database
+  # Ensure to have an empty database
+  if [ $SKIP_DB_EMPTY -eq 0 ]; then
     printf "\e[1;35m* Empty database.\e[0m\n"
     drush sql:create -y
+
+  # Reset database
+  elif [ $SKIP_DB_RESET -eq 0 ] || ([ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_not_installed); then
+    database_reset
+  fi
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+  fi
+
+  if drupal_is_installed; then
+    # Big Pipe cause some block to be rendered with delay and break Behat tests.
+    drush pmu big_pipe -y
+
+    # Rebuild Drupal cache
+    drush cache-rebuild
   fi
 
   # Ensure log directory exists
@@ -884,6 +914,8 @@ elif [ "$1" = "phpunit" ]; then
 
   # Run tests
   (
+    set +e
+
     cd web
 
     export SYMFONY_DEPRECATIONS_HELPER
@@ -893,6 +925,18 @@ elif [ "$1" = "phpunit" ]; then
 
     phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
   )
+  phpunit_exit=$?
+
+  if drupal_is_installed; then
+    # Disable default content
+    disable_default_content
+
+    # Re-enable Big Pipe.
+    drush en big_pipe -y
+  fi
+
+  # exit
+  exit $phpunit_exit
 
 #
 # COMMAND TO RUN

@@ -1,4 +1,4 @@
-FROM php:5.6-apache
+FROM php:7.0-apache
 
 ENV APACHE_DOCUMENT_ROOT /var/www/web
 ENV NODE_MAJOR_VERSION 8
@@ -39,7 +39,7 @@ RUN set -ex; \
   ; \
   \
   # install xdebug for PHP 7.x
-  if [ $(echo "5.6 >= 7.0" | bc -l) -eq 1 ]; then \
+  if [ $(echo "7.0 >= 7.0" | bc -l) -eq 1 ]; then \
     pecl install xdebug; \
     docker-php-ext-enable \
       xdebug \
