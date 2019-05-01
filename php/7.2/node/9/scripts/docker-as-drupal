@@ -25,7 +25,7 @@ set -e
 
 # Script variables
 BEHAT_OUTPUT_DIRECTORY="${LOG_DIR}/behat"
-BROWSERTEST_OUTPUT_DIRECTORY="${LOG_DIR}/phpunit"
+BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
 DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
 DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
@@ -243,10 +243,10 @@ function database_reset() {
     fi
   elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
-    exit 1
+    return 1
   else
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME bootstrap' first.\e[0m\n"
-    exit 1
+    return 1
   fi
 
   # Drop and create database
@@ -623,11 +623,11 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
-    database_reset
+    database_reset || true
   fi
 
   # Load default content (then disable module)
-  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
     enable_default_content
     disable_default_content
   fi
@@ -689,11 +689,11 @@ elif [ "$1" = "apache-server" ]; then
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
-    database_reset
+    database_reset || true
   fi
 
   # Load default content (then disable module)
-  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
     enable_default_content
     disable_default_content
   fi
