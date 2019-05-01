@@ -97,10 +97,12 @@ RUN { \
     echo 'opcache.enable_cli=1'; \
   } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
-# Select the timezone
+# Set PHP settings for Docker
+ENV PHP_MEMORY_LIMIT="258M"
 RUN { \
     echo 'date.timezone="Europe/Zurich"'; \
-  } > /usr/local/etc/php/conf.d/docker.ini 
+    echo 'memory_limit=${PHP_MEMORY_LIMIT}'; \
+  } > /usr/local/etc/php/conf.d/docker.ini
 
 # setup npm
 RUN npm config set --global python python2.7
