@@ -264,6 +264,9 @@ function database_reset() {
   # Final attempt to update database and entities
   drush updatedb -y
   drush entity:update -y
+
+  # Set Drupal install env to TRUE
+  DRUPAL_IS_INSTALLED=1
 }
 
 # Dump database
@@ -886,13 +889,21 @@ elif [ "$1" = "phpunit" ]; then
     drush sql:create -y
 
   # Reset database
-  elif [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+  elif [ $SKIP_DB_RESET -eq 0 ] || ([ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_not_installed); then
     database_reset
   fi
 
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
+  fi
+
+  if drupal_is_installed; then
+    # Big Pipe cause some block to be rendered with delay and break Behat tests.
+    drush pmu big_pipe -y
+
+    # Rebuild Drupal cache
+    drush cache-rebuild
   fi
 
   # Ensure log directory exists
@@ -903,6 +914,8 @@ elif [ "$1" = "phpunit" ]; then
 
   # Run tests
   (
+    set +e
+
     cd web
 
     export SYMFONY_DEPRECATIONS_HELPER
@@ -912,6 +925,18 @@ elif [ "$1" = "phpunit" ]; then
 
     phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
   )
+  phpunit_exit=$?
+
+  if drupal_is_installed; then
+    # Disable default content
+    disable_default_content
+
+    # Re-enable Big Pipe.
+    drush en big_pipe -y
+  fi
+
+  # exit
+  exit $phpunit_exit
 
 #
 # COMMAND TO RUN
