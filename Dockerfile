@@ -97,6 +97,11 @@ RUN { \
     echo 'opcache.enable_cli=1'; \
   } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
+# Select the timezone
+RUN { \
+    echo 'date.timezone="Europe/Zurich"'; \
+  } > /usr/local/etc/php/conf.d/docker.ini 
+
 # setup npm
 RUN npm config set --global python python2.7
 
