@@ -11,6 +11,23 @@
           image_name: antistatique/php-dev
           image_tag: 5.6-node8
           encrypted_dockercfg_path: docker.cfg.enc
+    - name: php 7.0
+      type: serial
+      steps:
+        - name: node 8
+          type: push
+          service: 7.0-node8
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.0-node8
+          encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 10
+          type: push
+          service: 7.0-node10
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.0-node10
+          encrypted_dockercfg_path: docker.cfg.enc
     - name: php 7.1
       type: serial
       steps:
