@@ -196,6 +196,14 @@ RUN set -ex; \
   #   pdo_pgsql \
   #   zip \
   # ; \
+  # \
+  # install xdebug for PHP 7.x
+  # if [ $(echo "%%PHP_VERSION%% >= 7.0" | bc -l) -eq 1 ]; then \
+  #   pecl install xdebug; \
+  #   docker-php-ext-enable \
+  #     xdebug \
+  #   ; \
+  # fi; \
   \
   # reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
   apt-mark auto '.*' > /dev/null; \
