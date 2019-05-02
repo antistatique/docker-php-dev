@@ -105,7 +105,7 @@ function process {
 
   if [ "$VERSION_TO_UPDATE" != "all" ] && [ "$VERSION_TO_UPDATE" != "$tag" ]; then
     echo "** skip php-dev:$tag"
-    continue
+    return
   fi
 
   echo "** update files for php-dev:$tag"
