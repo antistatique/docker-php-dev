@@ -309,7 +309,12 @@ function import_drupal_config() {
         printf "\e[1;35m* Exit due to too many configuration import attempts.\e[0m\n"
         exit 1
       fi
+
       drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR" 2>&1 | tee -a $LOG_DIR/config-import.log
+
+      if cat $LOG_DIR/config-import.log | grep "There are no changes to import" > /dev/null; then
+        break;
+      fi
       attempt=$(( attempt+1 ))
     done
   )
