@@ -31,6 +31,7 @@ DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
 DEFAULT_CONTENT_MODULES=""
 DRUPAL_IS_INSTALLED=0
+DEVELOPMENT=1
 RELATIVE_SITE_CONFIG_DIR=$(realpath --relative-to=/var/www/web ${SITE_CONFIG_DIR})
 SCRIPT_NAME=$(basename $0)
 TEST_SERVER_HOST="0.0.0.0"
@@ -225,6 +226,11 @@ function drupal_not_installed() {
 # Return TRUE if yarn is installed
 function yarn_is_installed() {
   command -v yarn > /dev/null 2>&1
+}
+
+# Return TRUE if development mode is enbale (default)
+function is_development() {
+  [ $DEVELOPMENT -eq 1 ]
 }
 
 # Install dependencies
@@ -717,6 +723,7 @@ elif [ "$1" = "apache-server" ]; then
   printf "\e[1;35m* Launch test server.\e[0m\n"
   apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" ${TEST_SERVER_ARGS[@]}
 
+
 #
 # RUN BEHAT TESTS
 #
@@ -727,6 +734,7 @@ elif [ "$1" = "behat" ]; then
   SKIP_STYLEGUIDE=1
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
+  TEST_USER=""
   BEHAT_ARGV=()
 
   while [ $# -gt 0 ]; do
@@ -742,6 +750,9 @@ elif [ "$1" = "behat" ]; then
         ;;
       --skip-default-content)
         SKIP_DEFAULT_CONTENT=1
+        ;;
+      --user=*)
+        TEST_USER="${1#*=}"
         ;;
       --help)
         print_help
@@ -792,15 +803,23 @@ elif [ "$1" = "behat" ]; then
   find "$BEHAT_OUTPUT_DIRECTORY" -type f -executable -exec chmod -x {} \;
   find "$BEHAT_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
 
-  # Run tests with docker profile
-  behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
+  # Run tests
+  if [ -z "$TEST_USER" ]; then
+    /var/www/vendor/bin/behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
+  else
+    sudo -u $TEST_USER -E /var/www/vendor/bin/behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
+  fi
   behat_exit=$?
 
-  # Disable default content
-  disable_default_content
+  # To not run this on CI
+  if is_development; then
 
-  # Re-enable Big Pipe.
-  drush en big_pipe -y
+    # Disable default content
+    disable_default_content
+
+    # Re-enable Big Pipe.
+    drush en big_pipe -y
+  fi
 
   # exit
   exit $behat_exit
@@ -816,6 +835,7 @@ elif [ "$1" = "phpunit" ]; then
   SKIP_DB_EMPTY=0
   SKIP_DEFAULT_STOP=0
   SKIP_DEFAULT_CONTENT=1
+  TEST_USER=""
   PHPUNIT_GROUPS=()
   PHPUNIT_EXCLUDE_GROUPS=()
   PHPUNIT_ARGV=()
@@ -848,6 +868,9 @@ elif [ "$1" = "phpunit" ]; then
         SKIP_DEPENDENCIES=1
         SKIP_DB_RESET=1
         SKIP_DB_EMPTY=1
+        ;;
+      --user=*)
+        TEST_USER="${1#*=}"
         ;;
       --help)
         print_help
@@ -921,18 +944,27 @@ elif [ "$1" = "phpunit" ]; then
   (
     set +e
 
+    # PHP units tests must run in application directory
     cd web
 
+    # Export require ENV
     export SYMFONY_DEPRECATIONS_HELPER
     export SIMPLETEST_DB
     export SIMPLETEST_BASE_URL
     export BROWSERTEST_OUTPUT_DIRECTORY
 
-    phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
+    # Run tests
+    if [ -z "$TEST_USER" ]; then
+      /var/www/vendor/bin/phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
+    else
+      sudo -u $TEST_USER -E /var/www/vendor/bin/phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
+    fi
   )
   phpunit_exit=$?
 
-  if drupal_is_installed; then
+  # To not run this on CI or when Drupal is not installed
+  if drupal_is_installed && is_development; then
+
     # Disable default content
     disable_default_content
 

@@ -67,6 +67,7 @@ RUN set -ex; \
     libpng-dev \
     mysql-client \
     netcat \
+    sudo \
     unzip \
     vim \
     webp \
