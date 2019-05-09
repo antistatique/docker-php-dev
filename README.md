@@ -69,6 +69,8 @@ CONFIG_IMPORT_ATTEMPTS        # Number of attemps to run config:import (default 
 DISABLE_DEVELOPMENT           # Set to disable development mode (that means we skip some restore
                               # steps after running tests or other stuff like that. Use for one
                               # time running container)
+LOCK_TIME                     # Lock time on running server and when run tests. Use format "2018-12-24 12:24:00"
+                              # See https://github.com/wolfcw/libfaketime for more information
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like

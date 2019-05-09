@@ -84,6 +84,15 @@ RUN set -ex; \
     npm config set --global python python2.7; \
   fi; \
   \
+  # Install faketime
+  # See https://github.com/wolfcw/libfaketime
+  git clone https://github.com/wolfcw/libfaketime.git /usr/src/faketime; \
+  ( \
+    cd /usr/src/faketime; \
+    make install; \
+  ); \
+  rm -rf /usr/src/faketime; \
+  \
   # cleanup
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
   rm -rf /var/lib/apt/lists/*

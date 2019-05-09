@@ -23,6 +23,7 @@ set -e
 : ${TEST_SERVER_PORT:="8888"}
 : ${CONFIG_IMPORT_ATTEMPTS:="5"}
 : ${DISABLE_DEVELOPMENT:=0}
+: ${LOCK_TIME:=""}
 
 # Script variables
 BEHAT_OUTPUT_DIRECTORY="${LOG_DIR}/behat"
@@ -343,10 +344,12 @@ function enable_default_content() {
     if [ ! -z "$DEFAULT_CONTENT" ]; then
       printf "\e[1;35m* Load default contents.\e[0m\n"
 
+      lock_time
       disable_default_content
       DEFAULT_CONTENT_MODULES="$(drush pm-list --field=name --status=enabled | sort)"
       drush en $DEFAULT_CONTENT -y
       DEFAULT_CONTENT_MODULES=$(comm -13 <(echo "$DEFAULT_CONTENT_MODULES") <(drush pm-list --field=name --status=enabled | sort))
+      free_time
     fi
   )
 }
@@ -359,6 +362,18 @@ function disable_default_content() {
   fi
 }
 
+# Enable fake time
+function lock_time() {
+  if [ ! -z "$LOCK_TIME" ]; then
+    export LD_PRELOAD="/usr/local/lib/faketime/libfaketime.so.1"
+    export FAKETIME="${LOCK_TIME:-$1}"
+  fi
+}
+
+# Disable fake time
+function free_time() {
+  unset LD_PRELOAD
+}
 
 #
 # BOOTSTRAP Drupal
@@ -666,9 +681,15 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
     yarn build --production
   fi
 
+  # Lock time
+  lock_time
+
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
   drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT ${TEST_SERVER_ARGS[@]}
+
+  # Release time lock
+  free_time
 
 #
 # RUN TEST SERVER
@@ -737,9 +758,15 @@ elif [ "$1" = "apache-server" ]; then
     yarn build --production
   fi
 
+  # Lock time
+  lock_time
+
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
   apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" ${TEST_SERVER_ARGS[@]}
+
+  # Release time lock
+  free_time
 
 
 #
@@ -821,6 +848,9 @@ elif [ "$1" = "behat" ]; then
   find "$BEHAT_OUTPUT_DIRECTORY" -type f -executable -exec chmod -x {} \;
   find "$BEHAT_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
 
+  # Lock time
+  lock_time
+
   # Run tests
   if [ -z "$TEST_USER" ]; then
     /var/www/vendor/bin/behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
@@ -828,6 +858,9 @@ elif [ "$1" = "behat" ]; then
     sudo -u $TEST_USER -E /var/www/vendor/bin/behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
   fi
   behat_exit=$?
+
+  # Release time lock
+  free_time
 
   # To not run this on CI
   if is_development; then
@@ -958,6 +991,9 @@ elif [ "$1" = "phpunit" ]; then
   find "$BROWSERTEST_OUTPUT_DIRECTORY" -type f -executable -exec chmod -x {} \;
   find "$BROWSERTEST_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
 
+  # Lock time
+  lock_time
+
   # Run tests
   (
     set +e
@@ -979,6 +1015,9 @@ elif [ "$1" = "phpunit" ]; then
     fi
   )
   phpunit_exit=$?
+
+  # Release time lock
+  free_time
 
   # To not run this on CI or when Drupal is not installed
   if drupal_is_installed && is_development; then
