@@ -65,6 +65,10 @@ SIMPLETEST_DB                 # Default to DATABASE_URL, can be overwrited
 SYMFONY_DEPRECATIONS_HELPER   # Default to weak, can be overwrited
 TEST_SERVER_PORT              # Default to 8888
 CONFIG_IMPORT_ATTEMPTS        # Number of attemps to run config:import (default to 5)
+
+DISABLE_DEVELOPMENT           # Set to disable development mode (that means we skip some restore
+                              # steps after running tests or other stuff like that. Use for one
+                              # time running container)
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like

@@ -22,6 +22,7 @@ set -e
 : ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
 : ${TEST_SERVER_PORT:="8888"}
 : ${CONFIG_IMPORT_ATTEMPTS:="5"}
+: ${DISABLE_DEVELOPMENT:=0}
 
 # Script variables
 BEHAT_OUTPUT_DIRECTORY="${LOG_DIR}/behat"
@@ -31,7 +32,6 @@ DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
 DEFAULT_CONTENT_MODULES=""
 DRUPAL_IS_INSTALLED=0
-DEVELOPMENT=1
 RELATIVE_SITE_CONFIG_DIR=$(realpath --relative-to=/var/www/web ${SITE_CONFIG_DIR})
 SCRIPT_NAME=$(basename $0)
 TEST_SERVER_HOST="0.0.0.0"
@@ -234,7 +234,7 @@ function yarn_is_installed() {
 
 # Return TRUE if development mode is enbale (default)
 function is_development() {
-  [ $DEVELOPMENT -eq 1 ]
+  [ $DISABLE_DEVELOPMENT -ne 0 ]
 }
 
 # Install dependencies
