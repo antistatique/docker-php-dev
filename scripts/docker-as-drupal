@@ -78,6 +78,10 @@ function print_help() {
 
     --file=<path>            # Path to dump file (not required)
 
+  * db-update
+
+    Update database, entities and import config.
+
   * php-server
 
     Run web server using 'drush runserver'. Reset database if not present.
@@ -266,15 +270,8 @@ function database_reset() {
   # Load database dump to reset its state
   $(drush sql:connect) < $FILE_PATH
 
-  # First attemps to update database (can fail)
-  drush updatedb -y || true
-
   # Load Drupal config
   import_drupal_config
-
-  # Final attempt to update database and entities
-  drush updatedb -y
-  drush entity:update -y
 
   # Set Drupal install env to TRUE
   DRUPAL_IS_INSTALLED=1
@@ -295,8 +292,14 @@ function database_dump() {
 # Sometimes Drupal import configs in wrong orders.
 # So we repeat the config-import max. 4 times on successives fails.
 function import_drupal_config() {
-  printf "\e[1;35m* Import drupal configuration.\e[0m\n"
+  # Rebuild cache
+  drush cache-rebuild
 
+  # First attemps to update database (may fail)
+  printf "\e[1;35m* Update database (may fail).\e[0m\n"
+  drush updatedb -y || true
+
+  printf "\e[1;35m* Import drupal configuration.\e[0m\n"
   (
     set +e
 
@@ -322,6 +325,11 @@ function import_drupal_config() {
   # Fix Sitename bugged keep display "| Drupal"
   # @see https://www.drupal.org/node/2851877
   drush -q ev '\Drupal::languageManager()->getLanguageConfigOverrideStorage("fr")->delete("system.site");' >/dev/null 2>&1 || true
+
+  # Final attempt to update database and entities
+  printf "\e[1;35m* Update database and entities.\e[0m\n"
+  drush updatedb -y
+  drush entity:update -y
 
   # Rebuild cache
   drush cache-rebuild
@@ -425,15 +433,8 @@ if [ "$1" = "bootstrap" ]; then
       drush config-set system.site uuid "$SITE_UUID" -y
     )
 
-    # First attemps to update database (can fail)
-    drush updatedb -y || true
-
     # Load config
     import_drupal_config
-
-    # Final attempt to update database and entities
-    drush updatedb -y
-    drush entity:update -y
 
     # Save database dump after install
     database_dump
@@ -594,6 +595,18 @@ elif [ "$1" = "db-restore" ]; then
 
   # Reset database without default content
   database_reset "$FILE_PATH"
+
+#
+# UPDATE DATABASE
+#
+elif [ "$1" = "db-update" ]; then
+  shift
+
+  # Setup settings & Co.
+  setup
+
+  # Load config
+  import_drupal_config
 
 #
 # RUN PHP SERVER

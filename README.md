@@ -330,6 +330,8 @@ docker-compose exec dev docker-as-drupal db-restore [options]
     --file=<path>            # Path to dump file (not required)
 ```
 
+*db-update* update database, entities and import config.
+
 *php-server* run `drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT` command.
 
 Available options are:
