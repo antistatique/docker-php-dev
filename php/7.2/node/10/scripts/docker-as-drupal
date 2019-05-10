@@ -25,6 +25,7 @@ set -e
 : ${CONFIG_IMPORT_ATTEMPTS:="5"}
 : ${DISABLE_DEVELOPMENT:=0}
 : ${LOCK_TIME:=""}
+: ${TEST_DISABLE_MODULES:="big_pipe"}
 
 # Script variables
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
@@ -848,7 +849,7 @@ elif [ "$1" = "behat" ]; then
   fi
 
   # Big Pipe cause some block to be rendered with delay and break Behat tests.
-  drush pmu big_pipe -y
+  drush pmu $TEST_DISABLE_MODULES -y
 
   # Rebuild Drupal cache
   drush cache-rebuild
@@ -879,7 +880,7 @@ elif [ "$1" = "behat" ]; then
     disable_default_content
 
     # Re-enable Big Pipe.
-    drush en big_pipe -y
+    drush en $TEST_DISABLE_MODULES -y
   fi
 
   # exit
@@ -989,7 +990,7 @@ elif [ "$1" = "phpunit" ]; then
 
   if drupal_is_installed; then
     # Big Pipe cause some block to be rendered with delay and break Behat tests.
-    drush pmu big_pipe -y
+    drush pmu $TEST_DISABLE_MODULES -y
 
     # Rebuild Drupal cache
     drush cache-rebuild
@@ -1036,7 +1037,7 @@ elif [ "$1" = "phpunit" ]; then
     disable_default_content
 
     # Re-enable Big Pipe.
-    drush en big_pipe -y
+    drush en $TEST_DISABLE_MODULES -y
   fi
 
   # exit

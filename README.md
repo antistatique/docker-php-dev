@@ -72,6 +72,7 @@ DISABLE_DEVELOPMENT           # Set to disable development mode (that means we s
                               # time running container)
 LOCK_TIME                     # Lock time on running server and when run tests. Use format "2018-12-24 12:24:00"
                               # See https://github.com/wolfcw/libfaketime for more information
+TEST_DISABLE_MODULES          # Modules to disable when running tests, separate by space (default: big_pipe)
 ```
 
 `behat.yml` file must have a docker profile and MailCatcher webmail url can be setup like
