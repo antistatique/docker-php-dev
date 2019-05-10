@@ -57,6 +57,7 @@ SITE_INSTALL_PROFILE          # Drupal installation profile (default to standard
 PRIVATE_FILES                 # Path to private files diretory (add it to settings on bootstrap)
 DEFAULT_CONTENT               # Default content modules to use
 LOG_DIR                       # Default to /var/www/log (behat and phpunit output directories are inside)
+REQUIRED_DIRECTORIES          # List of directories to create (separate by space)
 
 BEHAT_PROFILE                 # Behat config profile (default to "default")
 PHPUNIT_DEFAULT_GROUP         # Default phpunit group used if "--group" is not set

@@ -12,6 +12,7 @@ set -e
 : ${SITE_INSTALL_PROFILE:="standard"}
 : ${PRIVATE_FILES:=""}
 : ${DEFAULT_CONTENT:=""}
+: ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
 : ${LOG_DIR:="/var/www/log"}
 
 : ${BEHAT_PROFILE:="default"}
@@ -26,7 +27,6 @@ set -e
 : ${LOCK_TIME:=""}
 
 # Script variables
-BEHAT_OUTPUT_DIRECTORY="${LOG_DIR}/behat"
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
 DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
 DATABASE_NAME=${DATABASE_URL##*/}
@@ -205,6 +205,23 @@ function setup() {
     find "$PRIVATE_FILES" -type d -exec chmod +xs {} \;
   fi
 
+  # Create required directories
+  printf "\e[1;35m* Setup required directoris.\e[0m\n"
+
+  echo mkdir $LOG_DIR
+  mkdir -p $LOG_DIR
+  chmod -R 777 "$LOG_DIR"
+  find "$LOG_DIR" -type f -executable -exec chmod -x {} \;
+  find "$LOG_DIR" -type d -exec chmod +xs {} \;
+
+  for dir in $REQUIRED_DIRECTORIES; do
+    echo mkdir "$dir"
+    mkdir -p "$dir"
+    chmod -R 777 "$dir"
+    find "$dir" -type f -executable -exec chmod -x {} \;
+    find "$dir" -type d -exec chmod +xs {} \;
+  done
+
   # Setup directory for translations
   mkdir -p ./web/sites/default/files/translations
 
@@ -304,7 +321,6 @@ function import_drupal_config() {
   (
     set +e
 
-    mkdir -p $LOG_DIR
     cat /dev/null > $LOG_DIR/config-import.log
 
     attempt=1
@@ -841,12 +857,6 @@ elif [ "$1" = "behat" ]; then
   if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
     yarn build --production
   fi
-
-  # create log directory
-  mkdir -p $BEHAT_OUTPUT_DIRECTORY
-  chmod -R 777 $BEHAT_OUTPUT_DIRECTORY
-  find "$BEHAT_OUTPUT_DIRECTORY" -type f -executable -exec chmod -x {} \;
-  find "$BEHAT_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
 
   # Lock time
   lock_time
