@@ -26,6 +26,7 @@ set -e
 : ${DISABLE_DEVELOPMENT:=0}
 : ${LOCK_TIME:=""}
 : ${TEST_DISABLE_MODULES:="big_pipe"}
+: ${TEST_USER:=""}
 
 # Script variables
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
@@ -796,7 +797,6 @@ elif [ "$1" = "behat" ]; then
   SKIP_STYLEGUIDE=1
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
-  TEST_USER=""
   BEHAT_ARGV=()
 
   while [ $# -gt 0 ]; do
@@ -897,7 +897,6 @@ elif [ "$1" = "phpunit" ]; then
   SKIP_DB_EMPTY=0
   SKIP_DEFAULT_STOP=0
   SKIP_DEFAULT_CONTENT=1
-  TEST_USER=""
   PHPUNIT_GROUPS=()
   PHPUNIT_EXCLUDE_GROUPS=()
   PHPUNIT_ARGV=()
