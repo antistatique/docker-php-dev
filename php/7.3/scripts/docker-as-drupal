@@ -365,7 +365,11 @@ function enable_default_content() {
       lock_time
       disable_default_content
       DEFAULT_CONTENT_MODULES="$(drush pm-list --field=name --status=enabled | sort)"
-      drush en $DEFAULT_CONTENT -y
+      if [ -z "$TEST_USER" ]; then
+        drush en $DEFAULT_CONTENT -y
+      else
+        sudo -u $TEST_USER -E /var/www/vendor/bin/drush en $DEFAULT_CONTENT -y
+      fi
       DEFAULT_CONTENT_MODULES=$(comm -13 <(echo "$DEFAULT_CONTENT_MODULES") <(drush pm-list --field=name --status=enabled | sort))
       free_time
     fi
