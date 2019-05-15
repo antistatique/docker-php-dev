@@ -80,6 +80,13 @@
           image_name: antistatique/php-dev
           image_tag: 7.1-node11
           encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 12
+          type: push
+          service: 7.1-node12
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.1-node12
+          encrypted_dockercfg_path: docker.cfg.enc
     - name: php 7.2
       type: serial
       steps:
@@ -118,6 +125,13 @@
           image_name: antistatique/php-dev
           image_tag: 7.2-node11
           encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 12
+          type: push
+          service: 7.2-node12
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.2-node12
+          encrypted_dockercfg_path: docker.cfg.enc
     - name: php 7.3
       type: serial
       steps:
@@ -141,4 +155,11 @@
           registry: https://index.docker.io/v1/
           image_name: antistatique/php-dev
           image_tag: 7.3-node11
+          encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 12
+          type: push
+          service: 7.3-node12
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.3-node12
           encrypted_dockercfg_path: docker.cfg.enc
