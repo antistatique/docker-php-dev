@@ -75,6 +75,7 @@ DISABLE_DEVELOPMENT           # Set to disable development mode (that means we s
                               # time running container)
 LOCK_TIME                     # Lock time on running server and when run tests. Use format "2018-12-24 12:24:00"
                               # See https://github.com/wolfcw/libfaketime for more information
+TEST_ENABLE_MODULES           # Modules to enable when running tests, separate by space
 TEST_DISABLE_MODULES          # Modules to disable when running tests, separate by space (default: big_pipe)
 TEST_USER                     # Set a default user to run tests
 ```

@@ -26,6 +26,7 @@ set -e
 : ${DISABLE_DEVELOPMENT:=0}
 : ${LOCK_TIME:=""}
 : ${TEST_DISABLE_MODULES:="big_pipe"}
+: ${TEST_ENABLE_MODULES:=""}
 : ${TEST_USER:=""}
 
 # Script variables
@@ -852,8 +853,11 @@ elif [ "$1" = "behat" ]; then
     enable_default_content
   fi
 
-  # Big Pipe cause some block to be rendered with delay and break Behat tests.
+  # Disable modules that must not be loaded for tests
   drush pmu $TEST_DISABLE_MODULES -y
+
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
 
   # Rebuild Drupal cache
   drush cache-rebuild
@@ -883,7 +887,10 @@ elif [ "$1" = "behat" ]; then
     # Disable default content
     disable_default_content
 
-    # Re-enable Big Pipe.
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
     drush en $TEST_DISABLE_MODULES -y
   fi
 
@@ -992,8 +999,11 @@ elif [ "$1" = "phpunit" ]; then
   fi
 
   if drupal_is_installed; then
-    # Big Pipe cause some block to be rendered with delay and break Behat tests.
+    # Disable modules that must not be loaded for tests
     drush pmu $TEST_DISABLE_MODULES -y
+
+    # Enable modules that must be loaded for tests
+    drush en $TEST_ENABLE_MODULES -y
 
     # Rebuild Drupal cache
     drush cache-rebuild
@@ -1039,7 +1049,10 @@ elif [ "$1" = "phpunit" ]; then
     # Disable default content
     disable_default_content
 
-    # Re-enable Big Pipe.
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
     drush en $TEST_DISABLE_MODULES -y
   fi
 
