@@ -187,7 +187,8 @@ function setup() {
 
   # Setup mailer
   printf "\e[1;35m* Setup mail host.\e[0m\n"
-  if ! grep -Eq "\\\$config\['swiftmailer.transport'\]\['(smtp_host|smtp_port|smtp_encryption)'\]" ./web/sites/default/settings.php; then
+  if ! grep -Eq "\\\$config\['swiftmailer.transport'\]\['(smtp_host|smtp_port|smtp_encryption|transport)'\]" ./web/sites/default/settings.php; then
+    echo "\$config['swiftmailer.transport']['transport'] = 'smtp';" >> ./web/sites/default/settings.php
     echo "\$config['swiftmailer.transport']['smtp_host'] = '${SMTP_HOST%:*}';" >> ./web/sites/default/settings.php
     echo "\$config['swiftmailer.transport']['smtp_port'] = '${SMTP_HOST#*:}';" >> ./web/sites/default/settings.php
     echo "\$config['swiftmailer.transport']['smtp_encryption'] = '0';" >> ./web/sites/default/settings.php
