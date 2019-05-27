@@ -48,6 +48,8 @@ not required).
 Following environement variable are available:
 
 ```bash
+APACHE_DOCUMENT_ROOT          # Apache Document Root (default to "/var/www/web")
+
 DATABASE_URL                  # Database URL scheme, should be different for dev and test services
 DATABASE_DUMP                 # Database dump file path (default to "/var/backups/db-reset.sql"). Must
                               # be located in a volume shared by dev and test services.
