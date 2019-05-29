@@ -34,6 +34,7 @@ BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
 DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
 DATABASE_NAME=${DATABASE_URL##*/}
 DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
+DATABASE_PASSWORD=$(a=${DATABASE_URL#*//}; b=${a#*:}; echo ${b%@*})
 DEFAULT_CONTENT_MODULES=""
 DRUPAL_IS_INSTALLED=0
 RELATIVE_SITE_CONFIG_DIR=$(realpath --relative-to=/var/www/web ${SITE_CONFIG_DIR})
@@ -787,7 +788,7 @@ elif [ "$1" = "apache-server" ]; then
 
   # Run server
   printf "\e[1;35m* Launch test server.\e[0m\n"
-  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" ${TEST_SERVER_ARGS[@]}
+  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" -c "SetEnv DOCKER_ENVIRONMENT 1"  ${TEST_SERVER_ARGS[@]}
 
   # Release time lock
   free_time
