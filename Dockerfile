@@ -115,7 +115,7 @@ RUN { \
   } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
 # Set PHP settings for Docker
-ENV PHP_MEMORY_LIMIT="258M"
+ENV PHP_MEMORY_LIMIT="256M"
 RUN { \
     echo 'date.timezone="Europe/Zurich"'; \
     echo 'memory_limit=${PHP_MEMORY_LIMIT}'; \

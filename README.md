@@ -49,7 +49,7 @@ Following environement variable are available:
 
 ```bash
 APACHE_DOCUMENT_ROOT          # Apache Document Root (default to "/var/www/web")
-PHP_MEMORY_LIMIT              # Set PHP mermory limit (default to "258M")
+PHP_MEMORY_LIMIT              # Set PHP mermory limit (default to "256M")
 
 DATABASE_URL                  # Database URL scheme, should be different for dev and test services
 DATABASE_DUMP                 # Database dump file path (default to "/var/backups/db-reset.sql"). Must
