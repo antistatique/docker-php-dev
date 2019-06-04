@@ -82,7 +82,6 @@ RUN set -ex; \
     ; \
     \
     npm config set --global python python2.7; \
-    npm install -g bower; \
   fi; \
   \
   # Install faketime
