@@ -93,6 +93,12 @@ function setup() {
   find /var/www/app/logs -type d -exec chmod +xs {} \;
 
   php -d memory_limit=-1 app/console cache:clear --no-interaction
+
+  # Fix rights on cache directores
+  mkdir -p /var/www/app/cache
+  chmod -R 777 /var/www/app/cache
+  find /var/www/app/cache -type f -executable -exec chmod -x {} \;
+  find /var/www/app/cache -type d -exec chmod +xs {} \;
 }
 
 # Return TRUE if Drupal is already installed (database is ready)
