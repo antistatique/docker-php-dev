@@ -62,6 +62,7 @@ RUN set -ex; \
   \
   # install php running dependencies
   apt-get install -y --no-install-recommends \
+    dnsutils \
     git \
     imagemagick \
     libpng-dev \
