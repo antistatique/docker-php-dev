@@ -65,6 +65,7 @@ RUN set -ex; \
     dnsutils \
     git \
     imagemagick \
+    jq \
     libpng-dev \
     mysql-client \
     netcat \
