@@ -116,6 +116,18 @@ function print_help() {
     --help                   # Display behat help
     -- <...>                 # any behat valid args
 
+  * nightwatch
+
+    Run nightwatch tests.
+
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before)
+    --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+    --skip-styleguide-build  # Do not run yarn build
+    --skip-dependencies      # Do not run composer and yarn install
+    --group=<group>          # Only runs tests from the specified group(s)
+    --help                   # Display nightwatch help
+    -- <...>                 # any nightwatch valid args
+
   * phpunit
 
     Run phpunits tests.
@@ -897,6 +909,117 @@ elif [ "$1" = "behat" ]; then
 
   # exit
   exit $behat_exit
+
+#
+# RUN NIGHTWATCH TESTS
+#
+elif [ "$1" = "nightwatch" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=0
+  SKIP_STYLEGUIDE=0
+  SKIP_DB_RESET=0
+  SKIP_DEFAULT_CONTENT=0
+  NIGHTWATCH_GROUPS=()
+  NIGHTWATCH_ARGV=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-dependencies)
+        SKIP_DEPENDENCIES=1
+        ;;
+      --skip-styleguide-build)
+        SKIP_STYLEGUIDE=1
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --skip-default-content)
+        SKIP_DEFAULT_CONTENT=1
+        ;;
+      --group=*)
+        NIGHTWATCH_GROUPS+=("--tag ${1#*=}")
+        ;;
+      --help)
+        print_help
+        yarn nightwatch --help
+        exit $?
+        ;;
+      --)
+        shift
+        NIGHTWATCH_ARGV=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+    database_reset
+  fi
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+  fi
+
+  # Disable modules that must not be loaded for tests
+  drush pmu $TEST_DISABLE_MODULES -y
+
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
+  # Rebuild Drupal cache
+  drush cache-rebuild
+
+  # Build styleguide
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
+  # Lock time
+  lock_time
+
+  # move in core directory
+  cd web/core
+
+  # Install Nightwatch in the core directory
+  yarn install
+
+  # Run tests
+  yarn test:nightwatch ${NIGHTWATCH_GROUPS[@]} ${NIGHTWATCH_ARGV[@]}
+  nightwatch_exit=$?
+
+  # move back in the root directory
+  cd ../../
+
+  # Release time lock
+  free_time
+
+  # To not run this on CI
+  if is_development; then
+
+    # Disable default content
+    disable_default_content
+
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
+    drush en $TEST_DISABLE_MODULES -y
+  fi
+
+  # exit
+  exit $nightwatch_exit
 
 #
 # RUN PHPUNIT TESTS
