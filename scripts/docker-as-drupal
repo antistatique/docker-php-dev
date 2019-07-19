@@ -123,7 +123,7 @@ function print_help() {
     --skip-db-reset          # Do not reset database (to use only if database was reset just before)
     --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
     --skip-styleguide-build  # Do not run yarn build
-    --skip-dependencies      # Do not run composer and yarn install
+    --with-dependencies      # Run composer and yarn install
     --group=<group>          # Only runs tests from the specified group(s)
     --help                   # Display nightwatch help
     -- <...>                 # any nightwatch valid args
@@ -916,7 +916,7 @@ elif [ "$1" = "behat" ]; then
 elif [ "$1" = "nightwatch" ]; then
   shift
 
-  SKIP_DEPENDENCIES=0
+  SKIP_DEPENDENCIES=1
   SKIP_STYLEGUIDE=0
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
@@ -925,8 +925,8 @@ elif [ "$1" = "nightwatch" ]; then
 
   while [ $# -gt 0 ]; do
     case "$1" in
-      --skip-dependencies)
-        SKIP_DEPENDENCIES=1
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
         ;;
       --skip-styleguide-build)
         SKIP_STYLEGUIDE=1
