@@ -999,18 +999,17 @@ elif [ "$1" = "nightwatch" ]; then
   # Lock time
   lock_time
 
-  # move in core directory
-  cd web/core
+  # subshell to move in the web/core directory for installing & run tests
+  (
+    cd web/core
 
-  # Install Nightwatch in the core directory
-  yarn install
+    # Install Nightwatch in the core directory
+    yarn install
 
-  # Run tests
-  yarn test:nightwatch ${NIGHTWATCH_GROUPS[@]} ${NIGHTWATCH_ARGV[@]}
+    # Run tests
+    yarn test:nightwatch ${NIGHTWATCH_GROUPS[@]} ${NIGHTWATCH_ARGV[@]}
+  )
   nightwatch_exit=$?
-
-  # move back in the root directory
-  cd ../../
 
   # Release time lock
   free_time
