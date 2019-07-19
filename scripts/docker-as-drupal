@@ -28,6 +28,7 @@ set -e
 : ${TEST_DISABLE_MODULES:="big_pipe"}
 : ${TEST_ENABLE_MODULES:=""}
 : ${TEST_USER:=""}
+: ${DRUPAL_NIGHTWATCH_CONFIG_SET:=""}
 
 # Script variables
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
@@ -977,6 +978,15 @@ elif [ "$1" = "nightwatch" ]; then
 
   # Enable modules that must be loaded for tests
   drush en $TEST_ENABLE_MODULES -y
+
+  if [ ! -z "$DRUPAL_NIGHTWATCH_CONFIG_SET" ]; then
+    IFS=';' read -r -a configs <<< "$DRUPAL_NIGHTWATCH_CONFIG_SET"
+    for config in "${configs[@]}"
+    do
+      printf "\e[1;35m* config-setup ${config}.\e[0m\n"
+      drush cset ${config} -y
+    done
+  fi
 
   # Rebuild Drupal cache
   drush cache-rebuild
