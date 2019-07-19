@@ -982,7 +982,7 @@ elif [ "$1" = "nightwatch" ]; then
   drush cache-rebuild
 
   # Build styleguide
-  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
+  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
     yarn build --production
   fi
 
