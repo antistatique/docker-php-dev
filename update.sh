@@ -130,11 +130,11 @@ function process {
     )
   done
 
-  # copy Dockerfile template and scripts
+  # copy scripts
   cp ./scripts/* $DOCKERFILE_DIR/scripts/
   chmod 774 $DOCKERFILE_DIR/scripts/*
 
-  # update Dockerfile
+  # copy Dockerfile
   sed \
     -e "s!%%PHP_VERSION%%!${phpVersion}!g" \
     -e "s!%%NODE_VERSION%%!${nodeVersion:-"false"}!g" \
