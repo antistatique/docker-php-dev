@@ -968,6 +968,9 @@ elif [ "$1" = "nightwatch" ]; then
     database_reset
   fi
 
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
@@ -975,9 +978,6 @@ elif [ "$1" = "nightwatch" ]; then
 
   # Disable modules that must not be loaded for tests
   drush pmu $TEST_DISABLE_MODULES -y
-
-  # Enable modules that must be loaded for tests
-  drush en $TEST_ENABLE_MODULES -y
 
   # Set nightwatch custom Drupal config
   for dir in $DRUPAL_NIGHTWATCH_CONFIG_SET; do
