@@ -120,7 +120,7 @@ function process {
   mkdir -p $DOCKERFILE_DIR/scripts
 
   # cleanup removed scripts
-  for file in `diff <(cd $(pwd)/scripts; find -s . -type f) <(cd $DOCKERFILE_DIR/scripts; find -s .  -type f) | grep "^>" | awk -F/ '{print "'"$DOCKERFILE_DIR/scripts/"'" $2}'`; do
+  for file in `diff <(cd $(pwd)/scripts; find . -type f | sort) <(cd $DOCKERFILE_DIR/scripts; find .  -type f | sort) | grep "^>" | awk -F/ '{print "'"$DOCKERFILE_DIR/scripts/"'" $2}'`; do
     (
       set -e
 
@@ -131,15 +131,14 @@ function process {
   done
 
   # copy Dockerfile template and scripts
-  cp ./Dockerfile $DOCKERFILE_PATH
   cp ./scripts/* $DOCKERFILE_DIR/scripts/
   chmod 774 $DOCKERFILE_DIR/scripts/*
 
   # update Dockerfile
-  sed -i '' \
+  sed \
     -e "s!%%PHP_VERSION%%!${phpVersion}!g" \
     -e "s!%%NODE_VERSION%%!${nodeVersion:-"false"}!g" \
-    "$DOCKERFILE_PATH"
+    ./Dockerfile > "$DOCKERFILE_PATH"
 
   # build docker imge if required
   if [ "$VERSION_TO_BUILD" = "all" ] || [ "$VERSION_TO_BUILD" = "$tag" ]; then
