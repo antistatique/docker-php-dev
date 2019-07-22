@@ -861,6 +861,9 @@ elif [ "$1" = "behat" ]; then
     database_reset
   fi
 
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
@@ -868,9 +871,6 @@ elif [ "$1" = "behat" ]; then
 
   # Disable modules that must not be loaded for tests
   drush pmu $TEST_DISABLE_MODULES -y
-
-  # Enable modules that must be loaded for tests
-  drush en $TEST_ENABLE_MODULES -y
 
   # Rebuild Drupal cache
   drush cache-rebuild
@@ -1122,6 +1122,11 @@ elif [ "$1" = "phpunit" ]; then
     database_reset
   fi
 
+  if drupal_is_installed; then
+    # Enable modules that must be loaded for tests
+    drush en $TEST_ENABLE_MODULES -y
+  fi
+
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
@@ -1130,9 +1135,6 @@ elif [ "$1" = "phpunit" ]; then
   if drupal_is_installed; then
     # Disable modules that must not be loaded for tests
     drush pmu $TEST_DISABLE_MODULES -y
-
-    # Enable modules that must be loaded for tests
-    drush en $TEST_ENABLE_MODULES -y
 
     # Rebuild Drupal cache
     drush cache-rebuild
