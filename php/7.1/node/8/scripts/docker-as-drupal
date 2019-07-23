@@ -28,6 +28,7 @@ set -e
 : ${TEST_DISABLE_MODULES:="big_pipe"}
 : ${TEST_ENABLE_MODULES:=""}
 : ${TEST_USER:=""}
+: ${DRUPAL_NIGHTWATCH_CONFIG_SET:=""}
 
 # Script variables
 BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
@@ -115,6 +116,17 @@ function print_help() {
     --with-dependencies      # Run composer and yarn install
     --help                   # Display behat help
     -- <...>                 # any behat valid args
+
+  * nightwatch
+
+    Run nightwatch tests.
+
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before)
+    --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+    --with-dependencies      # Run composer and yarn install
+    --group=<group>          # Only runs tests from the specified group(s)
+    --help                   # Display nightwatch help
+    -- <...>                 # any nightwatch valid args
 
   * phpunit
 
@@ -849,6 +861,9 @@ elif [ "$1" = "behat" ]; then
     database_reset
   fi
 
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
@@ -856,9 +871,6 @@ elif [ "$1" = "behat" ]; then
 
   # Disable modules that must not be loaded for tests
   drush pmu $TEST_DISABLE_MODULES -y
-
-  # Enable modules that must be loaded for tests
-  drush en $TEST_ENABLE_MODULES -y
 
   # Rebuild Drupal cache
   drush cache-rebuild
@@ -897,6 +909,123 @@ elif [ "$1" = "behat" ]; then
 
   # exit
   exit $behat_exit
+
+#
+# RUN NIGHTWATCH TESTS
+#
+elif [ "$1" = "nightwatch" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+  SKIP_STYLEGUIDE=1
+  SKIP_DB_RESET=0
+  SKIP_DEFAULT_CONTENT=0
+  NIGHTWATCH_GROUPS=()
+  NIGHTWATCH_ARGV=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --skip-default-content)
+        SKIP_DEFAULT_CONTENT=1
+        ;;
+      --group=*)
+        NIGHTWATCH_GROUPS+=("--tag ${1#*=}")
+        ;;
+      --help)
+        print_help
+        yarn nightwatch --help
+        exit $?
+        ;;
+      --)
+        shift
+        NIGHTWATCH_ARGV=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+    database_reset
+  fi
+
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+  fi
+
+  # Disable modules that must not be loaded for tests
+  drush pmu $TEST_DISABLE_MODULES -y
+
+  # Set nightwatch custom Drupal config
+  IFS=';' read -r -a configs <<< "$DRUPAL_NIGHTWATCH_CONFIG_SET"
+  for config in "${configs[@]}"; do
+    printf "\e[1;35m* config-setup ${config}.\e[0m\n"
+    drush cset ${config} -y
+  done
+
+  # Rebuild Drupal cache
+  drush cache-rebuild
+
+  # Build styleguide
+  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
+  # Lock time
+  lock_time
+
+  # subshell to move in the web/core directory for installing & run tests
+  (
+    cd web/core
+
+    # Install Nightwatch in the core directory
+    yarn install
+
+    # Run tests
+    yarn test:nightwatch ${NIGHTWATCH_GROUPS[@]} ${NIGHTWATCH_ARGV[@]}
+  )
+  nightwatch_exit=$?
+
+  # Release time lock
+  free_time
+
+  # To not run this on CI
+  if is_development; then
+
+    # Disable default content
+    disable_default_content
+
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
+    drush en $TEST_DISABLE_MODULES -y
+  fi
+
+  # exit
+  exit $nightwatch_exit
 
 #
 # RUN PHPUNIT TESTS
@@ -994,6 +1123,11 @@ elif [ "$1" = "phpunit" ]; then
     database_reset
   fi
 
+  if drupal_is_installed; then
+    # Enable modules that must be loaded for tests
+    drush en $TEST_ENABLE_MODULES -y
+  fi
+
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
@@ -1002,9 +1136,6 @@ elif [ "$1" = "phpunit" ]; then
   if drupal_is_installed; then
     # Disable modules that must not be loaded for tests
     drush pmu $TEST_DISABLE_MODULES -y
-
-    # Enable modules that must be loaded for tests
-    drush en $TEST_ENABLE_MODULES -y
 
     # Rebuild Drupal cache
     drush cache-rebuild
