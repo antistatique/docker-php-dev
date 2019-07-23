@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -e
+
+: ${ARTIFACTS_INSTALL:="/usr/bin/artifacts-install"}
+: ${ARTIFACTS_LOG_DIR:="/var/www/log"}
+
+# Artifacts variables
+export ARTIFACTS_DEST=${ARTIFACTS_DEST:="/usr/bin/artifacts"}
+export ARTIFACTS_KEY=${ARTIFACTS_KEY:=""}
+export ARTIFACTS_SECRET=${ARTIFACTS_SECRET:=""}
+export ARTIFACTS_BUCKET=${ARTIFACTS_BUCKET:="codeship-artifact"}
+export ARTIFACTS_REGION=${ARTIFACTS_REGION:="eu-west-1"}
+
+# Download Artifacts installer.
+curl -sL -o "${ARTIFACTS_INSTALL}" \
+  "https://raw.githubusercontent.com/travis-ci/artifacts/master/install"
+
+# Make it executable & install Artifacts.
+chmod +x "${ARTIFACTS_INSTALL}"
+"${ARTIFACTS_INSTALL}"
+
+# Collect all files, then to upload them one by one.
+files="$(find -L ${ARTIFACTS_LOG_DIR} -type f)"
+echo "$files" | while read file; do
+  # Upload to Amazon S3.
+  "${ARTIFACTS_DEST}" upload \
+    --target-paths "${CI_REPO_NAME}/${CI_BUILD_NUMBER}/log" \
+    "${file}"
+done
+
+
