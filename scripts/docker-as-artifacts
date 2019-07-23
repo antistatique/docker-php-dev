@@ -2,30 +2,105 @@
 set -e
 
 : ${ARTIFACTS_INSTALL:="/usr/bin/artifacts-install"}
-: ${ARTIFACTS_LOG_DIR:="/var/www/log"}
+: ${ARTIFACTS_DEFAULT_DIR:="/var/www/log"}
+: ${ARTIFACTS_DEFAULT_S3:="${CI_REPO_NAME}/${CI_BUILD_NUMBER}"}
 
 # Artifacts variables
-export ARTIFACTS_DEST=${ARTIFACTS_DEST:="/usr/bin/artifacts"}
+: ${ARTIFACTS_BIN:="/usr/bin/artifacts"}
 export ARTIFACTS_KEY=${ARTIFACTS_KEY:=""}
 export ARTIFACTS_SECRET=${ARTIFACTS_SECRET:=""}
 export ARTIFACTS_BUCKET=${ARTIFACTS_BUCKET:="codeship-artifact"}
 export ARTIFACTS_REGION=${ARTIFACTS_REGION:="eu-west-1"}
 
-# Download Artifacts installer.
-curl -sL -o "${ARTIFACTS_INSTALL}" \
-  "https://raw.githubusercontent.com/travis-ci/artifacts/master/install"
+# Print help
+function print_help() {
+  echo "usage: $SCRIPT_NAME <dir> [options]
 
-# Make it executable & install Artifacts.
-chmod +x "${ARTIFACTS_INSTALL}"
-"${ARTIFACTS_INSTALL}"
+  Upload given artifacts directory into an Amazone S3 bucket.
+
+  --local-dir=<dir>        # Directory to upload on Amazone S3.
+  --remote-dir=<dir>       # Directory name into Amazone S3.
+  --skip-install           # Do not install artifacts
+  --recursive              # Upload artifacts recursively
+  -- <...>                 # Any artifacts valid args
+  "
+}
+
+ARTIFACTS_DIR=()
+ARTIFACTS_S3=()
+SKIP_INSTALL=0
+RECURSIVE=0
+ARTIFACTS_ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --local-dir=*)
+      ARTIFACTS_DIR+=("${1#*=}")
+      ;;
+    --remote-dir=*)
+      ARTIFACTS_S3+=("${1#*=}")
+      ;;
+    --skip-install)
+      SKIP_INSTALL=1
+      ;;
+    --recursive)
+      RECURSIVE=1
+      ;;
+    --help)
+      print_help
+      exit $?
+      ;;
+    --)
+      shift
+      ARTIFACTS_ARGS=($@)
+      break
+      ;;
+  esac
+  shift
+done
+
+# Use default directory if not in present in arguements
+if [ -z "$ARTIFACTS_DIR" ] && [ ! -z "$ARTIFACTS_DEFAULT_DIR" ]; then
+  ARTIFACTS_DIR=("$ARTIFACTS_DEFAULT_DIR")
+fi
+
+# Use default AWS S3 if not in present in arguements
+if [ -z "$ARTIFACTS_S3" ] && [ ! -z "$ARTIFACTS_DEFAULT_S3" ]; then
+  ARTIFACTS_S3=("$ARTIFACTS_DEFAULT_S3")
+fi
+
+# Remove any trailing slashes.
+ARTIFACTS_DIR=$(echo $ARTIFACTS_DIR | sed 's:/*$::')
+ARTIFACTS_S3=$(echo $ARTIFACTS_S3 | sed 's:/*$::')
+
+printf "\e[1;35m* Artifacts Setup.\e[0m\n"
+printf "\e[1;35m* local: ${ARTIFACTS_DIR}\e[0m\n"
+printf "\e[1;35m* remote: aws::${ARTIFACTS_S3}\e[0m\n"
+printf "\e[1;35m* bucket: ${ARTIFACTS_BUCKET}\e[0m\n"
+printf "\e[1;35m* region: ${ARTIFACTS_REGION}\e[0m\n"
+
+if [ $SKIP_INSTALL -eq 0 ]; then
+  printf "\n\e[1;35m* Download Artifacts into ${ARTIFACTS_INSTALL}.\e[0m\n"
+
+  # Download Artifacts installer.
+  curl -sL -o "${ARTIFACTS_INSTALL}" \
+    "https://raw.githubusercontent.com/travis-ci/artifacts/master/install"
+
+  # Make it executable & install Artifacts.
+  chmod +x "${ARTIFACTS_INSTALL}"
+  "${ARTIFACTS_INSTALL}"
+fi
+
+printf "\n\e[1;35m* Upload Artifacts from ${ARTIFACTS_DIR} to ${ARTIFACTS_S3}.\e[0m\n"
 
 # Collect all files, then to upload them one by one.
-files="$(find -L ${ARTIFACTS_LOG_DIR} -type f)"
+files="$(find -L ${ARTIFACTS_DIR} -type f)"
 echo "$files" | while read file; do
-  # Upload to Amazon S3.
-  "${ARTIFACTS_DEST}" upload \
-    --target-paths "${CI_REPO_NAME}/${CI_BUILD_NUMBER}/log" \
-    "${file}"
+  if [ -f "${file}" ]; then
+    # Upload to Amazon S3.
+    "${ARTIFACTS_BIN}" upload \
+      --target-paths "${ARTIFACTS_S3}" \
+      "${file}" "${ARTIFACTS_ARGS[@]}"
+  fi
 done
 
 
