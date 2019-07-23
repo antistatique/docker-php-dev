@@ -979,7 +979,8 @@ elif [ "$1" = "nightwatch" ]; then
   drush pmu $TEST_DISABLE_MODULES -y
 
   # Set nightwatch custom Drupal config
-  for dir in $DRUPAL_NIGHTWATCH_CONFIG_SET; do
+  IFS=';' read -r -a configs <<< "$DRUPAL_NIGHTWATCH_CONFIG_SET"
+  for config in "${configs[@]}"; do
     printf "\e[1;35m* config-setup ${config}.\e[0m\n"
     drush cset ${config} -y
   done
