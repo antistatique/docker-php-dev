@@ -62,10 +62,12 @@ RUN set -ex; \
   \
   # install php running dependencies
   apt-get install -y --no-install-recommends \
+    dnsutils \
     git \
     imagemagick \
+    jq \
     libpng-dev \
-    mysql-client \
+    mariadb-client \
     netcat \
     sudo \
     unzip \

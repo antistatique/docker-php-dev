@@ -391,6 +391,22 @@ docker-compose exec test docker-as-drupal behat [options]
   -- <...>                 # any behat valid args
 ```
 
+*nightwatch* setup database and settings properly then run nightwatch command. `--group` is required
+as Drupal nightwatch tests doesn't pass without more config.
+
+Available options are:
+
+```bash
+docker-compose exec test docker-as-drupal nightwatch [options]
+
+  --skip-db-reset          # Do not reset database (to use only if database was reset just before)
+  --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+  --with-dependencies      # Run composer and yarn install
+  --group=<group>          # Only runs tests from the specified group(s)
+  --help                   # Display behat help
+  -- <...>                 # any behat valid args
+```
+
 *phpunit* setup database and settings properly then run phpunit command including any options
 like file path, _--stop-on-failure_ or more.
 
