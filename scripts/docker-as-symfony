@@ -71,14 +71,18 @@ function print_help() {
 function setup() {
   printf "\e[1;35m* Update parameters.yml file.\e[0m\n"
 
+  if [ ! -f /var/www/app/config/parameters.yml ]; then
+    cp /var/www/app/config/parameters.yml.dist /var/www/app/config/parameters.yml
+  fi
+
   # Populate database config
-  sed -ri -e "s@database_host:.+@database_host: ${DATABASE_HOST}@g" /var/www/app/config/parameters.yml
-  sed -ri -e "s@database_name:.+@database_name: ${DATABASE_NAME}@g" /var/www/app/config/parameters.yml
-  sed -ri -e "s@database_user:.+@database_user: ${DATABASE_USER}@g" /var/www/app/config/parameters.yml
-  sed -ri -e "s@database_password:.+@database_password: ${DATABASE_PASSWORD}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_host:.*@database_host: ${DATABASE_HOST}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_name:.*@database_name: ${DATABASE_NAME}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_user:.*@database_user: ${DATABASE_USER}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_password:.*@database_password: ${DATABASE_PASSWORD}@g" /var/www/app/config/parameters.yml
 
   # Populate mailer config
-  sed -ri -e "s@mailer_host:.+@mailer_host: ${SMTP_HOST%:*}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@mailer_host:.*@mailer_host: ${SMTP_HOST%:*}@g" /var/www/app/config/parameters.yml
 
   # Fix rights on cache directores
   mkdir -p /var/www/app/cache
@@ -99,6 +103,12 @@ function setup() {
   chmod -R 777 /var/www/app/cache
   find /var/www/app/cache -type f -executable -exec chmod -x {} \;
   find /var/www/app/cache -type d -exec chmod +xs {} \;
+
+  # Fix rights on session directores
+  mkdir -p /var/www/app/var/sessions
+  chmod -R 777 /var/www/app/var/sessions
+  find /var/www/app/var/sessions -type f -executable -exec chmod -x {} \;
+  find /var/www/app/var/sessions -type d -exec chmod +xs {} \;
 }
 
 # Return TRUE if Drupal is already installed (database is ready)
