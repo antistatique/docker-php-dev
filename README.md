@@ -391,7 +391,7 @@ docker-compose exec test docker-as-drupal behat [options]
 ```
 
 *nightwatch* setup database and settings properly then run nightwatch command. `--group` is required
-as Drupal nitghtwatch tests doesn't pass without more config.
+as Drupal nightwatch tests doesn't pass without more config.
 
 Available options are:
 
