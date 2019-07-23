@@ -67,7 +67,7 @@ RUN set -ex; \
     imagemagick \
     jq \
     libpng-dev \
-    mysql-client \
+    mariadb-client \
     netcat \
     sudo \
     unzip \
