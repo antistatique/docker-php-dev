@@ -58,12 +58,17 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# Use default directory if not in present in arguements
+# Ensure both mandatory AWS S3 keys are fill.
+if [ -z "$ARTIFACTS_KEY" ] || [ -z "$ARTIFACTS_SECRET" ]; then
+  printf "\e[01;31m Error: You need to define env variables ARTIFACTS_KEY and ARTIFACTS_SECRET with S3 credentials.\e[0m\n"
+  exit 1
+fi
+
 if [ -z "$ARTIFACTS_DIR" ] && [ ! -z "$ARTIFACTS_DEFAULT_DIR" ]; then
   ARTIFACTS_DIR=("$ARTIFACTS_DEFAULT_DIR")
 fi
 
-# Use default AWS S3 if not in present in arguements
+# Use default AWS S3 if not in present in arguements.
 if [ -z "$ARTIFACTS_S3" ] && [ ! -z "$ARTIFACTS_DEFAULT_S3" ]; then
   ARTIFACTS_S3=("$ARTIFACTS_DEFAULT_S3")
 fi
