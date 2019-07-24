@@ -67,8 +67,15 @@ function print_help() {
   "
 }
 
-# Setup parameters.yml file, database connection and other setup stuff
+# Setup
 function setup() {
+  if [ -f /var/www/app/config/parameters.yml.dist ]; then
+    setup_28
+    return;
+  fi
+}
+
+function setup_28() {
   printf "\e[1;35m* Update parameters.yml file.\e[0m\n"
 
   if [ ! -f /var/www/app/config/parameters.yml ]; then

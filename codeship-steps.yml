@@ -52,6 +52,30 @@
           image_name: antistatique/php-dev
           image_tag: 7.1-node8-symfony
           encrypted_dockercfg_path: docker.cfg.enc
+    - name: php 7.2
+      type: serial
+      steps:
+        - name: only
+          type: push
+          service: 7.2
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.2-symfony
+          encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 10
+          type: push
+          service: 7.2-node10
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.2-node10-symfony
+          encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 11
+          type: push
+          service: 7.2-node11
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.2-node11-symfony
+          encrypted_dockercfg_path: docker.cfg.enc
 - type: parallel
   tag: dev
   steps:
