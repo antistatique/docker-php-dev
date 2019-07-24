@@ -6,7 +6,7 @@ set -e
 : ${ARTIFACTS_DEFAULT_S3:="${CI_REPO_NAME}/${CI_BUILD_NUMBER}"}
 
 # Artifacts variables
-: ${ARTIFACTS_BIN:="/usr/bin/artifacts"}
+export ARTIFACTS_DEST=${ARTIFACTS_BIN:="/usr/bin/artifacts"}
 export ARTIFACTS_KEY=${ARTIFACTS_KEY:=""}
 export ARTIFACTS_SECRET=${ARTIFACTS_SECRET:=""}
 export ARTIFACTS_BUCKET=${ARTIFACTS_BUCKET:="codeship-artifact"}
