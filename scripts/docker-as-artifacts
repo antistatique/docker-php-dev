@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-: ${ARTIFACTS_INSTALL:="/usr/bin/artifacts-install"}
 : ${ARTIFACTS_DEFAULT_DIR:="/var/www/log"}
 : ${ARTIFACTS_DEFAULT_S3:="${CI_REPO_NAME}/${CI_BUILD_NUMBER}"}
 
@@ -20,7 +19,7 @@ function print_help() {
 
   --local-dir=<dir>        # Directory to upload on Amazone S3.
   --remote-dir=<dir>       # Directory name into Amazone S3.
-  --skip-install           # Do not install artifacts
+  --with-install           # Install artifacts
   --recursive              # Upload artifacts recursively
   -- <...>                 # Any artifacts valid args
   "
@@ -28,7 +27,7 @@ function print_help() {
 
 ARTIFACTS_DIR=()
 ARTIFACTS_S3=()
-SKIP_INSTALL=0
+SKIP_INSTALL=1
 RECURSIVE=0
 ARTIFACTS_ARGS=()
 while [ $# -gt 0 ]; do
@@ -39,8 +38,8 @@ while [ $# -gt 0 ]; do
     --remote-dir=*)
       ARTIFACTS_S3+=("${1#*=}")
       ;;
-    --skip-install)
-      SKIP_INSTALL=1
+    --with-install)
+      SKIP_INSTALL=0
       ;;
     --recursive)
       RECURSIVE=1
@@ -85,18 +84,13 @@ printf "\e[1;35m* bucket: ${ARTIFACTS_BUCKET}\e[0m\n"
 printf "\e[1;35m* region: ${ARTIFACTS_REGION}\e[0m\n"
 
 if [ $SKIP_INSTALL -eq 0 ]; then
-  printf "\n\e[1;35mDownload Artifacts into ${ARTIFACTS_INSTALL}.\e[0m\n"
+  printf "\n\e[1;35mDownload & Install Artifacts.\e[0m\n"
 
-  # Download Artifacts installer.
-  curl -sL -o "${ARTIFACTS_INSTALL}" \
-    "https://raw.githubusercontent.com/travis-ci/artifacts/master/install"
-
-  # Make it executable & install Artifacts.
-  chmod +x "${ARTIFACTS_INSTALL}"
-  "${ARTIFACTS_INSTALL}"
+  # Download Artifacts installer & install Artifacts in $ARTIFACTS_DEST.
+  curl -fsSL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
 fi
 
-printf "\n\e[1;35mUpload Artifacts from ${ARTIFACTS_DIR} to ${ARTIFACTS_S3}.\e[0m\n"
+printf "\n\e[1;35mUpload artifacts from ${ARTIFACTS_DIR} to ${ARTIFACTS_S3}.\e[0m\n"
 
 # Collect all files, then to upload them one by one.
 files="$(find -L ${ARTIFACTS_DIR} -type f)"
