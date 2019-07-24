@@ -64,6 +64,7 @@ if [ -z "$ARTIFACTS_KEY" ] || [ -z "$ARTIFACTS_SECRET" ]; then
   exit 1
 fi
 
+# Use default directory if not in present in arguements.
 if [ -z "$ARTIFACTS_DIR" ] && [ ! -z "$ARTIFACTS_DEFAULT_DIR" ]; then
   ARTIFACTS_DIR=("$ARTIFACTS_DEFAULT_DIR")
 fi
@@ -77,14 +78,14 @@ fi
 ARTIFACTS_DIR=$(echo $ARTIFACTS_DIR | sed 's:/*$::')
 ARTIFACTS_S3=$(echo $ARTIFACTS_S3 | sed 's:/*$::')
 
-printf "\e[1;35m* Artifacts Setup.\e[0m\n"
+printf "\e[1;35mArtifacts Setup.\e[0m\n"
 printf "\e[1;35m* local: ${ARTIFACTS_DIR}\e[0m\n"
 printf "\e[1;35m* remote: aws::${ARTIFACTS_S3}\e[0m\n"
 printf "\e[1;35m* bucket: ${ARTIFACTS_BUCKET}\e[0m\n"
 printf "\e[1;35m* region: ${ARTIFACTS_REGION}\e[0m\n"
 
 if [ $SKIP_INSTALL -eq 0 ]; then
-  printf "\n\e[1;35m* Download Artifacts into ${ARTIFACTS_INSTALL}.\e[0m\n"
+  printf "\n\e[1;35mDownload Artifacts into ${ARTIFACTS_INSTALL}.\e[0m\n"
 
   # Download Artifacts installer.
   curl -sL -o "${ARTIFACTS_INSTALL}" \
@@ -95,7 +96,7 @@ if [ $SKIP_INSTALL -eq 0 ]; then
   "${ARTIFACTS_INSTALL}"
 fi
 
-printf "\n\e[1;35m* Upload Artifacts from ${ARTIFACTS_DIR} to ${ARTIFACTS_S3}.\e[0m\n"
+printf "\n\e[1;35mUpload Artifacts from ${ARTIFACTS_DIR} to ${ARTIFACTS_S3}.\e[0m\n"
 
 # Collect all files, then to upload them one by one.
 files="$(find -L ${ARTIFACTS_DIR} -type f)"
