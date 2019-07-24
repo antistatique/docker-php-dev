@@ -28,7 +28,7 @@ function print_help() {
 ARTIFACTS_DIR=()
 ARTIFACTS_S3=()
 SKIP_INSTALL=1
-RECURSIVE=0
+MAXDEPTH="-maxdepth 1"
 ARTIFACTS_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -42,7 +42,7 @@ while [ $# -gt 0 ]; do
       SKIP_INSTALL=0
       ;;
     --recursive)
-      RECURSIVE=1
+      MAXDEPTH=""
       ;;
     --help)
       print_help
@@ -93,7 +93,7 @@ fi
 printf "\n\e[1;35mUpload artifacts from ${ARTIFACTS_DIR} to ${ARTIFACTS_S3}.\e[0m\n"
 
 # Collect all files, then to upload them one by one.
-files="$(find -L ${ARTIFACTS_DIR} -type f)"
+files="$(find -L ${ARTIFACTS_DIR} ${MAXDEPTH} -type f)"
 echo "$files" | while read file; do
   if [ -f "${file}" ]; then
     # Upload to Amazon S3.
