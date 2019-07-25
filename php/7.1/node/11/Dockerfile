@@ -4,6 +4,7 @@ ENV APACHE_DOCUMENT_ROOT /var/www/web
 ENV NODE_MAJOR_VERSION 11
 
 ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
+ENV ARTIFACTS_DEST="/usr/bin/artifacts"
 
 # Install dependencies
 RUN set -ex; \
@@ -79,6 +80,7 @@ RUN set -ex; \
   if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
     apt-get install -y --no-install-recommends \
       nodejs \
+      npm \
       python2.7 \
       yarn \
     ; \
@@ -94,6 +96,9 @@ RUN set -ex; \
     make install; \
   ); \
   rm -rf /usr/src/faketime; \
+  \
+  # Install artifacts
+  curl -fsSL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash; \
   \
   # cleanup
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \

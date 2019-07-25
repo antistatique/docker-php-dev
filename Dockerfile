@@ -80,6 +80,7 @@ RUN set -ex; \
   if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
     apt-get install -y --no-install-recommends \
       nodejs \
+      npm \
       python2.7 \
       yarn \
     ; \
