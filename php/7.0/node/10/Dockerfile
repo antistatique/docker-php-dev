@@ -103,6 +103,26 @@ RUN set -ex; \
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
+# Prepare symfony reweite conf
+RUN { \
+    echo '<Directory /var/www/public>'; \
+    echo '    RewriteEngine On'; \
+    echo ''; \
+    echo '    RewriteCond %{REQUEST_URI}::$1 ^(/.+)/(.*)::\2$'; \
+    echo '    RewriteRule ^(.*) - [E=BASE:%1]'; \
+    echo ''; \
+    echo '    RewriteCond %{HTTP:Authorization} .'; \
+    echo '    RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]'; \
+    echo ''; \
+    echo '    RewriteCond %{ENV:REDIRECT_STATUS} ^$'; \
+    echo '    RewriteRule ^index\.php(?:/(.*)|$) %{ENV:BASE}/$1 [R=301,L]'; \
+    echo ''; \
+    echo '    RewriteCond %{REQUEST_FILENAME} -f'; \
+    echo '    RewriteRule ^ - [L]'; \
+    echo '    RewriteRule ^ %{ENV:BASE}/index.php [L]'; \
+    echo '</Directory>'; \
+  } > /etc/apache2/conf-available/symfony-rewrite.conf
+
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
 # revalidate_freq is set to 0 to avoid delay in development mode.

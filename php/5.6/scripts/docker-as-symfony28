@@ -2,7 +2,7 @@
 set -e
 
 # Environement variables
-: ${DATABASE_URL:="mysql://root:root@db/symfony"}
+: ${DATABASE_URL:="mysql://root:root@db/drupal"}
 : ${DATABASE_DUMP:="/var/backups/db-reset.sql"}
 : ${SMTP_HOST:="mail:1025"}
 : ${REQUIRED_DIRECTORIES:=""}
@@ -64,40 +64,58 @@ function print_help() {
                              # reload cache)
     --help                   # Display apache help
     -- <...>                 # any apache valid args
-
-  * phpunit
-
-    Run phpunits tests.
-
-    --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
-    --with-dependencies      # Run composer and yarn install
-    --with-db-reset          # Reset database before launch server
-    --group=<group>          # Only runs tests from the specified group(s)
-    --exclude-group=<group>  # Exclude tests from the specified group(s)
-    --help                   # Display phpunit help
-    -- <...>                 # any phpunit valid args
-
-  * quality-check
-
-  Run code quality tools (phpcs).
-
-    --skip-phpcs             # Do not run phpcs
-    --skip-phpcpd            # Do not run phpcpd
-    --fail-on-phpcs          # Command fail if phpcs fail too
-    --fail-on-phpcpd         # Command fail if phpcpd fail too
   "
 }
 
 # Setup
 function setup() {
-  return;
+  printf "\e[1;35m* Update parameters.yml file.\e[0m\n"
+
+  if [ ! -f /var/www/app/config/parameters.yml ]; then
+    cp /var/www/app/config/parameters.yml.dist /var/www/app/config/parameters.yml
+  fi
+
+  # Populate database config
+  sed -ri -e "s@database_host:.*@database_host: ${DATABASE_HOST}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_name:.*@database_name: ${DATABASE_NAME}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_user:.*@database_user: ${DATABASE_USER}@g" /var/www/app/config/parameters.yml
+  sed -ri -e "s@database_password:.*@database_password: ${DATABASE_PASSWORD}@g" /var/www/app/config/parameters.yml
+
+  # Populate mailer config
+  sed -ri -e "s@mailer_host:.*@mailer_host: ${SMTP_HOST%:*}@g" /var/www/app/config/parameters.yml
+
+  # Fix rights on cache directores
+  mkdir -p /var/www/app/cache
+  chmod -R 777 /var/www/app/cache
+  find /var/www/app/cache -type f -executable -exec chmod -x {} \;
+  find /var/www/app/cache -type d -exec chmod +xs {} \;
+
+  # Fix right on logs directory
+  mkdir -p /var/www/app/logs
+  chmod -R 777 /var/www/app/logs
+  find /var/www/app/logs -type f -executable -exec chmod -x {} \;
+  find /var/www/app/logs -type d -exec chmod +xs {} \;
+
+  php -d memory_limit=-1 app/console cache:clear --no-interaction
+
+  # Fix rights on cache directores
+  mkdir -p /var/www/app/cache
+  chmod -R 777 /var/www/app/cache
+  find /var/www/app/cache -type f -executable -exec chmod -x {} \;
+  find /var/www/app/cache -type d -exec chmod +xs {} \;
+
+  # Fix rights on session directores
+  mkdir -p /var/www/app/var/sessions
+  chmod -R 777 /var/www/app/var/sessions
+  find /var/www/app/var/sessions -type f -executable -exec chmod -x {} \;
+  find /var/www/app/var/sessions -type d -exec chmod +xs {} \;
 }
 
 # Return TRUE if Drupal is already installed (database is ready)
 function symfony_is_installed() {
   if [ $SYMFONY_IS_INSTALLED -eq 0 ]; then
    # TODO: To be impletemed for symfony using migration table
-   # SYMFONY_IS_INSTALLED=$(bin/console doctrine:query:sql "SELECT * FROM users LIMIT 1" >/dev/null 2>&1 && echo 1 || echo 0)
+   # SYMFONY_IS_INSTALLED=$(app/console doctrine:query:sql "SELECT * FROM users LIMIT 1" >/dev/null 2>&1 && echo 1 || echo 0)
    SYMFONY_IS_INSTALLED=1
   fi
 
@@ -155,12 +173,12 @@ function database_reset() {
   fi
 
   # Drop and create database
-  bin/console doctrine:database:drop --no-interaction --quiet --if-exists --force
-  bin/console doctrine:database:create --no-interaction --quiet
+  app/console doctrine:database:drop --no-interaction --quiet --if-exists --force
+  app/console doctrine:database:create --no-interaction --quiet
 
   # Load database dump to reset its state
-  bin/console doctrine:database:import --no-interaction $FILE_PATH
-  bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+  mysql --user="$DATABASE_USER" --password="$DATABASE_PASSWORD" --host="$DATABASE_HOST" $DATABASE_NAME < $FILE_PATH
+  app/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
   # Set Drupal install env to TRUE
   DRUPAL_IS_INSTALLED=1
@@ -173,7 +191,7 @@ function database_dump() {
   printf "\e[1;35m* Dump database.\e[0m\n"
 
   mkdir -p $(dirname $FILE_PATH)
-  bin/console doctrine:schema:create --quiet --no-interaction --dump-sql > $FILE_PATH
+  app/console doctrine:schema:create --quiet --no-interaction --dump-sql > $FILE_PATH
 }
 
 
@@ -225,9 +243,9 @@ if [ "$1" = "bootstrap" ]; then
     fi
 
     # Create database
-    bin/console doctrine:database:drop --no-interaction --quiet --if-exists --force
-    bin/console doctrine:database:create --no-interaction --quiet
-    bin/console doctrine:schema:create --no-interaction --quiet
+    app/console doctrine:database:drop --no-interaction --quiet --if-exists --force
+    app/console doctrine:database:create --no-interaction --quiet
+    app/console doctrine:schema:create --no-interaction --quiet
 
     # Save database dump after install
     database_dump
@@ -420,162 +438,6 @@ elif [ "$1" = "apache-server" ]; then
 
   # Release time lock
   free_time
-
-#
-# RUN PHPUNIT TESTS
-#
-elif [ "$1" = "phpunit" ]; then
-  shift
-
-  SKIP_DEPENDENCIES=1
-  SKIP_DB_RESET=1
-  SKIP_DEFAULT_STOP=0
-  PHPUNIT_GROUPS=()
-  PHPUNIT_EXCLUDE_GROUPS=()
-  PHPUNIT_ARGV=()
-
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --with-dependencies)
-        SKIP_DEPENDENCIES=0
-        ;;
-      --with-db-reset)
-        SKIP_DB_RESET=0
-        ;;
-      --group=*)
-        PHPUNIT_GROUPS+=("--group ${1#*=}")
-        ;;
-      --exclude-group=*)
-        PHPUNIT_EXCLUDE_GROUPS+=("--exclude-group ${1#*=}")
-        ;;
-      --skip-default-stops)
-        SKIP_DEFAULT_STOP=1
-        ;;
-      --user=*)
-        TEST_USER="${1#*=}"
-        ;;
-      --help)
-        print_help
-        phpunit --help
-        exit $?
-        ;;
-      --)
-        shift
-        PHPUNIT_ARGV=($@)
-        break
-        ;;
-    esac
-    shift
-  done
-
-  # Use default group if not in present in arguements
-  if [ -z "$PHPUNIT_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_GROUP" ]; then
-    PHPUNIT_GROUPS=("--group $PHPUNIT_DEFAULT_GROUP")
-  fi
-  if [ -z "$PHPUNIT_EXCLUDE_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_EXCLUDE_GROUP" ]; then
-    PHPUNIT_EXCLUDE_GROUPS=("--exclude-group $PHPUNIT_DEFAULT_EXCLUDE_GROUP")
-  fi
-
-  if [ $SKIP_DEFAULT_STOP -eq 0 ]; then
-    PHPUNIT_ARGV+=(--stop-on-error)
-    PHPUNIT_ARGV+=(--stop-on-failure)
-  fi
-
-  # Install dependencies
-  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
-    install_dependencies
-  fi
-
-  # Setup settings & Co.
-  setup
-
-  # Reset database
-  if [ $SKIP_DB_RESET -eq 0 ] || symfony_not_installed; then
-    database_reset || true
-  fi
-
-  # Lock time
-  lock_time
-
-  # Run tests
-  (
-    set +e
-
-    # Run tests
-    if [ -z "$TEST_USER" ]; then
-      /var/www/bin/phpunit ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} ${PHPUNIT_ARGV[@]}
-    else
-      sudo -u $TEST_USER -E /var/www/bin/phpunit ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} ${PHPUNIT_ARGV[@]}
-    fi
-  )
-  phpunit_exit=$?
-
-  # Release time lock
-  free_time
-
-  # exit
-  exit $phpunit_exit
-
-#
-# QUALITY CHECK
-#
-elif [ "$1" = "quality-check" ]; then
-  shift
-
-  SKIP_PHPCS=0
-  SKIP_PHPCPD=0
-  FAIL_ON_PHPCS=0
-  FAIL_ON_PHPCPD=0
-
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --skip-phpcs)
-        SKIP_PHPCS=1
-        ;;
-      --skip-phpcpd)
-        SKIP_PHPCPD=1
-        ;;
-      --fail-on-phpcs)
-        FAIL_ON_PHPCS=1
-        ;;
-      --fail-on-phpcpd)
-        FAIL_ON_PHPCPD=1
-        ;;
-      --help)
-        print_help
-        exit $?;
-        ;;
-    esac
-    shift
-  done
-
-  (
-    set +e
-    phpcs_exit=0
-    phpcpd_exit=0
-
-    if [ $SKIP_PHPCS -eq 0 ] && command -v phpcs >/dev/null 2>&1; then
-      printf "\e[1;35m* Running Code Sniffer ...\e[0m\n"
-
-      phpcs --colors --encoding=utf-8
-      phpcs_exit=$?
-    fi
-
-    if [ $SKIP_PHPCPD -eq 0 ] && command -v phpcpd >/dev/null 2>&1; then
-      printf "\e[1;35m* Running Copy/Paste Detector ...\e[0m\n"
-
-      phpcpd ./src
-      phpcpd_exit=$?
-    fi
-
-    if [ $FAIL_ON_PHPCS -eq 1 ] && [ $phpcs_exit -gt 0 ]; then
-      exit $phpcs_exit
-    elif [ $FAIL_ON_PHPCPD -eq 1 ] && [ $phpcpd_exit -gt 0 ]; then
-      exit $phpcpd_exit
-    fi
-
-    exit 0
-  )
 
 #
 # HELP
