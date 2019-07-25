@@ -76,6 +76,15 @@ function print_help() {
     --exclude-group=<group>  # Exclude tests from the specified group(s)
     --help                   # Display phpunit help
     -- <...>                 # any phpunit valid args
+
+  * quality-check
+
+  Run code quality tools (phpcs).
+
+    --skip-phpcs             # Do not run phpcs
+    --skip-phpcpd            # Do not run phpcpd
+    --fail-on-phpcs          # Command fail if phpcs fail too
+    --fail-on-phpcpd         # Command fail if phpcpd fail too
   "
 }
 
@@ -506,6 +515,67 @@ elif [ "$1" = "phpunit" ]; then
 
   # exit
   exit $phpunit_exit
+
+#
+# QUALITY CHECK
+#
+elif [ "$1" = "quality-check" ]; then
+  shift
+
+  SKIP_PHPCS=0
+  SKIP_PHPCPD=0
+  FAIL_ON_PHPCS=0
+  FAIL_ON_PHPCPD=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-phpcs)
+        SKIP_PHPCS=1
+        ;;
+      --skip-phpcpd)
+        SKIP_PHPCPD=1
+        ;;
+      --fail-on-phpcs)
+        FAIL_ON_PHPCS=1
+        ;;
+      --fail-on-phpcpd)
+        FAIL_ON_PHPCPD=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  (
+    set +e
+    phpcs_exit=0
+    phpcpd_exit=0
+
+    if [ $SKIP_PHPCS -eq 0 ] && command -v phpcs >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Code Sniffer ...\e[0m\n"
+
+      phpcs --colors --encoding=utf-8
+      phpcs_exit=$?
+    fi
+
+    if [ $SKIP_PHPCPD -eq 0 ] && command -v phpcpd >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Copy/Paste Detector ...\e[0m\n"
+
+      phpcpd ./src
+      phpcpd_exit=$?
+    fi
+
+    if [ $FAIL_ON_PHPCS -eq 1 ] && [ $phpcs_exit -gt 0 ]; then
+      exit $phpcs_exit
+    elif [ $FAIL_ON_PHPCPD -eq 1 ] && [ $phpcpd_exit -gt 0 ]; then
+      exit $phpcpd_exit
+    fi
+
+    exit 0
+  )
 
 #
 # HELP
