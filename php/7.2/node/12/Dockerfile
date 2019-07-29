@@ -80,10 +80,15 @@ RUN set -ex; \
   if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
     apt-get install -y --no-install-recommends \
       nodejs \
-      npm \
       python2.7 \
       yarn \
     ; \
+    # npm is not installed as nodejs dependency on previous versions
+    if [ "$NODE_MAJOR_VERSION" -lt "10" ]; then \
+      apt-get install -y --no-install-recommends \
+        npm \
+      ; \
+    fi; \
     \
     npm config set --global python python2.7; \
   fi; \
