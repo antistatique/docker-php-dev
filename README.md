@@ -445,9 +445,21 @@ docker-compose exec test docker-as-drupal quality-check [options]
 ```
 
 ## Work on the docker image
-
+After updating `/scripts/*` don't forget to update all PHP images by running the following command:
 ```bash
 ./update.sh
-./update.sh --build=<7.2-node9|all|latest>
-./update.sh --publish==<7.2-node9|all|latest>
 ```
+
+You can also locally build all images or a specific one:
+
+```bash
+./update.sh --build=<7.2-node9|all|latest>
+```
+
+And if you have the credentials (run `docker login`), you can manually publish an image:
+
+```bash
+./update.sh --publish=<7.2-node9|all|latest>
+```
+
+But CodeShip take care of this on the default branch.
