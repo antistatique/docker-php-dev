@@ -362,7 +362,15 @@ function import_drupal_config() {
   # Final attempt to update database and entities
   printf "\e[1;35m* Update database and entities.\e[0m\n"
   drush updatedb -y
-  drush entity:update -y
+
+  # Get the Drupal version.
+   DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
+
+  # Since Drupal 8.7.x, entity:update has been deprecated.
+  if [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
+  then
+    drush entity:update -y
+  fi
 
   # Rebuild cache
   drush cache-rebuild
