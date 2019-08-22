@@ -22,6 +22,7 @@ RUN set -ex; \
   apt-get install -y --no-install-recommends \
     bc \
     gnupg \
+    libicu-dev \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
@@ -33,6 +34,7 @@ RUN set -ex; \
   docker-php-ext-install -j "$(nproc)" \
     bcmath \
     gd \
+    intl \
     opcache \
     pdo_mysql \
     pdo_pgsql \
