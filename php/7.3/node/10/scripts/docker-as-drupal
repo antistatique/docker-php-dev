@@ -14,6 +14,7 @@ set -e
 : ${DEFAULT_CONTENT:=""}
 : ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
 : ${LOG_DIR:="/var/www/log"}
+: ${DRUPAL_CONFIG_SET:=""}
 
 : ${BEHAT_PROFILE:="default"}
 : ${PHPUNIT_DEFAULT_GROUP:=""}
@@ -371,6 +372,13 @@ function import_drupal_config() {
   then
     drush entity:update -y
   fi
+
+  # Set custom Drupal config
+  IFS=';' read -r -a configs <<< "$DRUPAL_CONFIG_SET"
+  for config in "${configs[@]}"; do
+    printf "\e[1;35m* config-setup ${config}.\e[0m\n"
+    drush cset ${config} -y
+  done
 
   # Rebuild cache
   drush cache-rebuild
