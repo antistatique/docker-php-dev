@@ -149,17 +149,16 @@ function database_reset() {
   elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
     return 1
-  else
-    printf "\e[01;31No database dump found, run '$SCRIPT_NAME bootstrap' first.\e[0m\n"
-    return 1
   fi
 
   # Drop and create database
   bin/console doctrine:database:drop --no-interaction --quiet --if-exists --force
   bin/console doctrine:database:create --no-interaction --quiet
 
-  # Load database dump to reset its state
-  bin/console doctrine:database:import --no-interaction $FILE_PATH
+  # Load database dump if exists to reset its state, then migrate database
+  if [ -f $FILE_PATH ]; then
+    bin/console doctrine:database:import --no-interaction $FILE_PATH
+  fi
   bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
   # Set Drupal install env to TRUE
