@@ -188,8 +188,8 @@ function setup() {
     # Fix config directory in settings file
     sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
   else
-    # Fix config directory in settings file
-    sed -ri -e "s@^\\\$settings.*\[.*\].*;@\\\$settings\['config_sync_directory'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+    # Replace # $settings['config_sync_directory'] = '/directory/outside/webroot'; by our proper sync folder.
+    sed -ri -e "s@^.*\\\$settings\['config_sync_directory'\].+;@\\\$settings\['config_sync_directory'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
   fi
 
   # Set Hash Salt
