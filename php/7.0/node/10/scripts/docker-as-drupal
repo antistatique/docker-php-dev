@@ -179,8 +179,18 @@ function setup() {
   fi
   chmod 664 --quiet ./web/sites/default/settings.php || true
 
-  # Fix config directory in settings file
-  sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+  # Get the Drupal version.
+   DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
+
+  # Since Drupal 8.8.x, $config_directories has been deprecated. @see https://www.drupal.org/node/3018145
+  if [ "${DRUPAL_VERSION:2:1}" -lt "8" ]
+  then
+    # Fix config directory in settings file
+    sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+  else
+    # Fix config directory in settings file
+    sed -ri -e "s@^\\\$settings.*\[.*\].*;@\\\$settings\['config_sync_directory'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+  fi
 
   # Set Hash Salt
   if ! grep -Eq "\\\$settings\['hash_salt'\] = '.+'" ./web/sites/default/settings.php; then
