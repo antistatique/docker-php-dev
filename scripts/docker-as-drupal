@@ -9,8 +9,10 @@ set -e
 : ${SITE_CONFIG_DIR:="/var/www/config/d8/sync"}
 : ${SITE_UUID:=$(sed -n -e '/uuid:/ s/.*\: *//p' ${SITE_CONFIG_DIR}/system.site.yml)}
 : ${SITE_HASH_SALT:=""}
+: ${SITE_TRUSTED_HOST_PATTERNS:=""}
 : ${SITE_INSTALL_PROFILE:="standard"}
 : ${PRIVATE_FILES:=""}
+: ${SERVICES_FILE:=""}
 : ${DEFAULT_CONTENT:=""}
 : ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
 : ${LOG_DIR:="/var/www/log"}
@@ -167,8 +169,15 @@ function print_help() {
   "
 }
 
-# Setup settings.php file, database connection and directory for private files
+# Setup services.yml, settings.php file, database connection and directory for private files
 function setup() {
+
+  # Setup services.yml file
+  if [ ! -z "$SERVICES_FILE" ] && [ -f "$SERVICES_FILE" ] ; then
+    printf "\e[1;35m* Copy services.yml file.\e[0m\n"
+    cp $SERVICES_FILE ./web/sites/default/services.yml
+  fi
+
   printf "\e[1;35m* Update settings.php file.\e[0m\n"
 
   # Be sure to have a settings.php file with correct rights.
@@ -201,6 +210,19 @@ function setup() {
   # Use DATABASE_URL to populate database config
   if ! grep -q 'convertDbUrlToConnectionInfo' ./web/sites/default/settings.php; then
     echo '$databases["default"]["default"] = \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo(getenv("DATABASE_URL"), DRUPAL_ROOT);' >> ./web/sites/default/settings.php
+  fi
+
+  if ! grep -Eq "\\\$settings\['trusted_host_patterns'\] = '.+'" ./web/sites/default/settings.php; then
+    printf "\e[1;35m* Setup trusted host(s).\e[0m\n"
+
+    HOST_PATTERNS="["
+    for host_pattern in $SITE_TRUSTED_HOST_PATTERNS; do
+      HOST_PATTERNS+="${host_pattern},"
+      echo $host_pattern;
+    done
+    HOST_PATTERNS+="'^127\.20.\0.\1$','^localhost$',]"
+
+    echo '$settings["trusted_host_patterns"] = '$HOST_PATTERNS';' >> ./web/sites/default/settings.php
   fi
 
   # Disabling "automated cron"
