@@ -212,7 +212,7 @@ function setup() {
     echo '$databases["default"]["default"] = \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo(getenv("DATABASE_URL"), DRUPAL_ROOT);' >> ./web/sites/default/settings.php
   fi
 
-  if ! grep -Eq "\\\$settings\['trusted_host_patterns'\] = '.+'" ./web/sites/default/settings.php; then
+  if [ ! -z "$SITE_TRUSTED_HOST_PATTERNS" ] && [ ! $(grep -Eq "\\\$settings\['trusted_host_patterns'\] = '.+'" ./web/sites/default/settings.php) ] ; then
     printf "\e[1;35m* Setup trusted host(s).\e[0m\n"
 
     HOST_PATTERNS="["
