@@ -220,7 +220,7 @@ function setup() {
       HOST_PATTERNS+="${host_pattern},"
       echo $host_pattern;
     done
-    HOST_PATTERNS+="'^127\.20.\0.\1$','^localhost$',]"
+    HOST_PATTERNS+="'^127\.0.\0.\1$','^localhost$',]"
 
     echo '$settings["trusted_host_patterns"] = '$HOST_PATTERNS';' >> ./web/sites/default/settings.php
   fi
