@@ -19,11 +19,14 @@ execution time in docker
 The version for PHP and Node can be selected in image tag, follwing versions are availables :
 
 * PHP 5.6
+  * Node 6
   * Node 8
 * PHP 7.0
+  * Node 6
   * Node 8
   * Node 10
 * PHP 7.1
+  * Node 6
   * Node 8
   * Node 9
   * Node 10
