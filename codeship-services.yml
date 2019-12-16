@@ -22,6 +22,10 @@
   image_name: antistatique/php-dev
   build: ./php/7.1
   cached: true
+7.1-node6:
+  image_name: antistatique/php-dev
+  build: ./php/7.1/node/6
+  cached: true
 7.1-node8:
   image_name: antistatique/php-dev
   build: ./php/7.1/node/8

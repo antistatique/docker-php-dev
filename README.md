@@ -24,6 +24,7 @@ The version for PHP and Node can be selected in image tag, follwing versions are
   * Node 8
   * Node 10
 * PHP 7.1
+  * Node 6
   * Node 8
   * Node 9
   * Node 10

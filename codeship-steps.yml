@@ -52,6 +52,13 @@
           image_name: antistatique/php-dev
           image_tag: 7.1
           encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 6
+          type: push
+          service: 7.1-node6
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 7.1-node6
+          encrypted_dockercfg_path: docker.cfg.enc
         - name: node 8
           type: push
           service: 7.1-node8
