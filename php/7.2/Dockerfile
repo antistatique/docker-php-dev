@@ -26,6 +26,7 @@ RUN set -ex; \
     libpng-dev \
     libpq-dev \
     libzip-dev \
+    libicu-dev \
   ; \
   \
   # install the PHP extensions we need
@@ -37,6 +38,7 @@ RUN set -ex; \
     pdo_mysql \
     pdo_pgsql \
     zip \
+    intl \
   ; \
   \
   # reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
