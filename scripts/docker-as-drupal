@@ -255,7 +255,7 @@ function setup() {
   fi
 
   # Create required directories
-  printf "\e[1;35m* Setup required directoris.\e[0m\n"
+  printf "\e[1;35m* Setup required directories.\e[0m\n"
 
   echo mkdir $LOG_DIR
   mkdir -p $LOG_DIR
@@ -321,7 +321,7 @@ function database_reset() {
   if [ -f $FILE_PATH ]; then
     printf "\e[1;35m* Reset database.\e[0m\n"
     if drupal_not_installed; then
-      printf "\e[1;35m* (maybe forced beceause not installed).\e[0m\n"
+      printf "\e[1;35m* (Maybe forced because it is not installed).\e[0m\n"
     fi
   elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
