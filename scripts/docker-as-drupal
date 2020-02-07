@@ -421,7 +421,9 @@ function setup_elasticsearch() {
   (
     set +e
       printf "\e[1;35m* Setup Elasticsearch.\e[0m\n"
+      # Drop Elasticsearch indices.
       drush eshd -y
+      # Setup Elasticsearch indices.
       drush eshs
   )
 }
@@ -431,7 +433,9 @@ function warmup_elasticsearch() {
   (
     set +e
       printf "\e[1;35m* Warmup Elasticsearch.\e[0m\n"
+      # Mark for reindexation entities associated with an Elasticsearch index.
       drush eshr
+      # Run indexation.
       drush queue-run elasticsearch_helper_indexing
   )
 }
