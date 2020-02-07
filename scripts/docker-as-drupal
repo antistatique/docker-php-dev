@@ -986,7 +986,6 @@ elif [ "$1" = "behat" ]; then
   # Load default content
   if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
     enable_default_content
-    drush eshd -y && drush eshs && drush eshr && drush queue-run elasticsearch_helper_indexing
   fi
 
   # Warmup Elasticsearch content
