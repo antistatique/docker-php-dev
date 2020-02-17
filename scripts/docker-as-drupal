@@ -13,6 +13,7 @@ set -e
 : ${SITE_INSTALL_PROFILE:="standard"}
 : ${PRIVATE_FILES:=""}
 : ${SERVICES_FILE:=""}
+: ${DRUSH_FILE:=""}
 : ${DEFAULT_CONTENT:=""}
 : ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
 : ${LOG_DIR:="/var/www/log"}
@@ -176,6 +177,12 @@ function setup() {
   if [ ! -z "$SERVICES_FILE" ] && [ -f "$SERVICES_FILE" ] ; then
     printf "\e[1;35m* Copy services.yml file.\e[0m\n"
     cp $SERVICES_FILE ./web/sites/default/services.yml
+  fi
+
+  # Setup drush.yml file
+  if [ ! -z "$DRUSH_FILE" ] && [ -f "$DRUSH_FILE" ] ; then
+    printf "\e[1;35m* Copy drush.yml file.\e[0m\n"
+    mkdir -p "./drush" && cp $DRUSH_FILE ./drush/drush.yml
   fi
 
   printf "\e[1;35m* Update settings.php file.\e[0m\n"
