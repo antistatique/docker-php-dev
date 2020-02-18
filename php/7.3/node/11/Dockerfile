@@ -27,11 +27,12 @@ RUN set -ex; \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
+    libwebp-dev \
     libzip-dev \
   ; \
   \
   # install the PHP extensions we need
-  docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
+  docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr --with-webp-dir=/usr; \
   docker-php-ext-install -j "$(nproc)" \
     bcmath \
     gd \
