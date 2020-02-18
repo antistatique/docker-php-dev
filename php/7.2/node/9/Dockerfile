@@ -6,6 +6,8 @@ ENV NODE_MAJOR_VERSION 9
 ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
 ENV ARTIFACTS_DEST="/usr/bin/artifacts"
 
+ENV COMPOSER_MEMORY_LIMIT=-1
+
 # Install dependencies
 RUN set -ex; \
   \
