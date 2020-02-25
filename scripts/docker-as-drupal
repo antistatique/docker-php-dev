@@ -59,6 +59,8 @@ function print_help() {
     --skip-styleguide-build  # Do not run yarn build
     --with-default-content   # Load default content (force reset database when --skip-install)
     --install-only           # Same as --skip-dependencies --skip-styleguide-build
+    --with-elasticsearch     # Setup & Index content to Elasticsearch
+    --with-solr              # Index content to Solr
 
   * setup
 
@@ -73,6 +75,8 @@ function print_help() {
     --update-dump            # Update database dump (include updated Drupal config, but not
                              # default content)
     --with-default-content   # Load default content (before dump)
+    --with-elasticsearch     # Setup & Index content to Elasticsearch
+    --with-solr              # Index content to Solr
 
   * db-dump
 
@@ -96,6 +100,8 @@ function print_help() {
 
     --with-db-reset          # Reset database before launch server
     --with-default-content   # Load default content (force reset database)
+    --with-elasticsearch     # Setup & Index content to Elasticsearch
+    --with-solr              # Index content to Solr
     --help                   # Display runserver help
     -- <...>                 # any runserver valid args
 
@@ -117,6 +123,8 @@ function print_help() {
     --skip-db-reset          # Do not reset database (to use only if database was reset just before)
     --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
     --with-dependencies      # Run composer and yarn install
+    --with-elasticsearch     # Setup & Index content to Elasticsearch
+    --with-solr              # Index content to Solr
     --help                   # Display behat help
     -- <...>                 # any behat valid args
 
@@ -128,6 +136,8 @@ function print_help() {
     --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
     --with-dependencies      # Run composer and yarn install
     --group=<group>          # Only runs tests from the specified group(s)
+    --with-elasticsearch     # Setup & Index content to Elasticsearch
+    --with-solr              # Index content to Solr
     --help                   # Display nightwatch help
     -- <...>                 # any nightwatch valid args
 
@@ -440,6 +450,18 @@ function warmup_elasticsearch() {
   )
 }
 
+# Warmup content to be indexed into Solr
+function warmup_solr() {
+  (
+    set +e
+      printf "\e[1;35m* Warmup Solr.\e[0m\n"
+      # Mark for reindexation entities associated with a Solr index.
+      drush sapi-c
+      # Run indexation.
+      drush sapi-i
+  )
+}
+
 # Load default content in database
 function enable_default_content() {
   (
@@ -494,6 +516,7 @@ if [ "$1" = "bootstrap" ]; then
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=1
   SKIP_ELASTICSEARCH=1
+  SKIP_SOLR=1
   SKIP_STYLEGUIDE=0
 
   while [ $# -gt 0 ]; do
@@ -512,6 +535,9 @@ if [ "$1" = "bootstrap" ]; then
         ;;
       --with-elasticsearch)
         SKIP_ELASTICSEARCH=0
+        ;;
+      --with-solr)
+        SKIP_SOLR=0
         ;;
       --skip-styleguide-build)
         SKIP_STYLEGUIDE=1
@@ -593,6 +619,11 @@ if [ "$1" = "bootstrap" ]; then
     warmup_elasticsearch
   fi
 
+  # Warmup Solr content
+  if [ $SKIP_SOLR -eq 0 ] && drupal_is_installed; then
+    warmup_solr
+  fi
+
   # Build styleguide assets
   if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ] && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
     yarn build --production
@@ -635,6 +666,7 @@ elif [ "$1" = "db-reset" ]; then
 
   SKIP_DEFAULT_CONTENT=1
   SKIP_ELASTICSEARCH=1
+  SKIP_SOLR=1
   UPDATE_DATABASE_DUMP=0
 
   while [ $# -gt 0 ]; do
@@ -644,6 +676,9 @@ elif [ "$1" = "db-reset" ]; then
         ;;
       --with-elasticsearch)
         SKIP_ELASTICSEARCH=0
+        ;;
+      --with-solr)
+        SKIP_SOLR=0
         ;;
       --update-dump)
         UPDATE_DATABASE_DUMP=1
@@ -681,6 +716,11 @@ elif [ "$1" = "db-reset" ]; then
   # Warmup Elasticsearch content
   if [ $SKIP_ELASTICSEARCH -eq 0 ]; then
     warmup_elasticsearch
+  fi
+
+  # Warmup Solr content
+  if [ $SKIP_SOLR -eq 0 ]; then
+    warmup_solr
   fi
 
 #
@@ -768,6 +808,7 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
   SKIP_DB_RESET=1
   SKIP_DEFAULT_CONTENT=1
   SKIP_ELASTICSEARCH=1
+  SKIP_SOLR=1
   SKIP_STYLEGUIDE=1
   TEST_SERVER_ARGS=()
 
@@ -781,6 +822,9 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
         ;;
       --with-elasticsearch)
         SKIP_ELASTICSEARCH=0
+        ;;
+      --with-solr)
+        SKIP_SOLR=0
         ;;
       --with-styleguide)
         SKIP_STYLEGUIDE=0
@@ -824,6 +868,11 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
   # Warmup Elasticsearch content
   if [ $SKIP_ELASTICSEARCH -eq 0 ] && drupal_is_installed; then
     warmup_elasticsearch
+  fi
+
+  # Warmup Solr content
+  if [ $SKIP_SOLR -eq 0 ] && drupal_is_installed; then
+    warmup_solr
   fi
 
   # Build styleguide
@@ -930,6 +979,7 @@ elif [ "$1" = "behat" ]; then
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
   WITH_ELASTICSEARCH=0
+  WITH_SOLR=0
   BEHAT_ARGV=()
 
   while [ $# -gt 0 ]; do
@@ -948,6 +998,9 @@ elif [ "$1" = "behat" ]; then
         ;;
       --with-elasticsearch)
         WITH_ELASTICSEARCH=1
+        ;;
+      --with-solr)
+        WITH_SOLR=1
         ;;
       --user=*)
         TEST_USER="${1#*=}"
@@ -995,6 +1048,11 @@ elif [ "$1" = "behat" ]; then
   # Warmup Elasticsearch content
   if [ $WITH_ELASTICSEARCH -eq 1 ]; then
     warmup_elasticsearch
+  fi
+
+  # Warmup Solr content
+  if [ $WITH_SOLR -eq 1 ]; then
+    warmup_solr
   fi
 
   # Disable modules that must not be loaded for tests
@@ -1049,6 +1107,7 @@ elif [ "$1" = "nightwatch" ]; then
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
   WITH_ELASTICSEARCH=0
+  WITH_SOLR=0
   NIGHTWATCH_GROUPS=()
   NIGHTWATCH_ARGV=()
 
@@ -1068,6 +1127,9 @@ elif [ "$1" = "nightwatch" ]; then
         ;;
       --with-elasticsearch)
         WITH_ELASTICSEARCH=1
+        ;;
+      --with-solr)
+        WITH_SOLR=1
         ;;
       --group=*)
         NIGHTWATCH_GROUPS+=("--tag ${1#*=}")
@@ -1115,6 +1177,11 @@ elif [ "$1" = "nightwatch" ]; then
   # Warmup Elasticsearch content
   if [ $WITH_ELASTICSEARCH -eq 1 ]; then
     warmup_elasticsearch
+  fi
+
+  # Warmup Solr content
+  if [ $WITH_SOLR -eq 1 ]; then
+    warmup_solr
   fi
 
   # Disable modules that must not be loaded for tests
