@@ -64,6 +64,7 @@ PRIVATE_FILES                 # Path to private files diretory (add it to settin
 DEFAULT_CONTENT               # Default content modules to use
 LOG_DIR                       # Default to /var/www/log (behat and phpunit output directories are inside)
 REQUIRED_DIRECTORIES          # List of directories to create (separate by space)
+DRUPAL_CONFIG_SET             # Configurations keys to be overriden
 
 BEHAT_PROFILE                 # Behat config profile (default to "default")
 PHPUNIT_DEFAULT_GROUP         # Default phpunit group used if "--group" is not set
@@ -165,6 +166,25 @@ Use `docker-compose up` to start services then following command to boostrap (or
 Drupal installation: `docker-compose exec dev docker-as-drupal bootstrap`. Test service must
 be started manualy after bootstrap by running `docker-compose restart test`.
 
+
+**DRUPAL_CONFIG_SET**
+
+The Drupal Configurations Override environement variable is kind of special. It may contain 1 or many items te be declared as follow:
+
+Single
+```
+  DRUPAL_CONFIG_SET: >-
+    search_api.server.solr backend_config.connector_config.host solr
+```
+
+Multiple
+```
+  DRUPAL_CONFIG_SET: >-
+    search_api.server.solr backend_config.connector_config.host solr;
+    search_api.server.solr backend_config.connector_config.core watchdreamer
+```
+
+_Note the trailing `;` at the end of each line - excepted on the last one._
 
 ### Custom docker image
 
