@@ -254,6 +254,22 @@ function setup() {
     find "$PRIVATE_FILES" -type d -exec chmod +xs {} \;
   fi
 
+  # Include environement and local settings if they exists
+  if ! grep -Eq "[INCLUDE] Environment specific settings files." ./web/sites/default/settings.php; then
+    cat <<EOT >> ./web/sites/default/settings.php
+// [INCLUDE] Environment specific settings files.
+if (getenv('APP_ENV')) {
+  if (file_exists(__DIR__ . '/' . getenv('APP_ENV') . '.settings.php')) {
+    include __DIR__ . '/' . getenv('APP_ENV') . '.settings.php';
+  }
+}
+// Last: this servers specific settings files.
+if (file_exists(__DIR__ . '/settings.local.php')) {
+  include __DIR__ . '/settings.local.php';
+}
+EOT
+  fi
+
   # Create required directories
   printf "\e[1;35m* Setup required directories.\e[0m\n"
 
