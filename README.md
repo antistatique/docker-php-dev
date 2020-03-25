@@ -51,6 +51,9 @@ Following environement variable are available:
 ```bash
 APACHE_DOCUMENT_ROOT          # Apache Document Root (default to "/var/www/web")
 
+APP_ENV                       # Eq: development, test, production. This environment variable
+                              # is used to load specific settings per environment.
+
 DATABASE_URL                  # Database URL scheme, should be different for dev and test services
 DATABASE_DUMP                 # Database dump file path (default to "/var/backups/db-reset.sql"). Must
                               # be located in a volume shared by dev and test services.
@@ -109,6 +112,7 @@ services:
       - db
       - mail
     environment:
+      APP_ENV: development
       DATABASE_URL: mysql://drupal:drupal@db/drupal_development
       PRIVATE_FILES: /var/www/web/sites/default/files/private
       DEFAULT_CONTENT: project_default_content
@@ -127,6 +131,7 @@ services:
       - db
       - mail
     environment:
+      APP_ENV: test
       DATABASE_URL: mysql://drupal:drupal@db/drupal_test
       PRIVATE_FILES: /var/www/web/sites/default/files/private
       DEFAULT_CONTENT: project_default_content
@@ -161,6 +166,20 @@ volumes:
   database:
   backups:
 ```
+
+**settings.php files**
+You can create different PHP settings file based on the `APP_ENV` environment.
+The format is `${APP_ENV}.settings.php`:
+
+```
+# ./web/sites/default/development.settings.php
+
+$settings['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';
+$config['backerymails.settings']['reroute']['status'] = TRUE;
+// ...
+```
+
+Finally, a local settings PHP file is loaded if you create the script `./web/sites/default/settings.local.php`.
 
 Use `docker-compose up` to start services then following command to boostrap (or reset) the
 Drupal installation: `docker-compose exec dev docker-as-drupal bootstrap`. Test service must
