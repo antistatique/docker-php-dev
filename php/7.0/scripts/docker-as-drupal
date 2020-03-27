@@ -255,7 +255,7 @@ function setup() {
   fi
 
   # Include environement and local settings if they exists
-  if ! grep -Eq "[INCLUDE] Environment specific settings files." ./web/sites/default/settings.php; then
+  if ! grep -Eq "\[INCLUDE\] Environment specific settings files." ./web/sites/default/settings.php; then
     cat <<EOT >> ./web/sites/default/settings.php
 // [INCLUDE] Environment specific settings files.
 if (getenv('APP_ENV')) {
