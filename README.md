@@ -63,6 +63,8 @@ SITE_CONFIG_DIR               # Drupal configuration sync directory (default to 
 SITE_UUID                     # Drupal site UUID (default set to UUID in system.side.yml file)
 SITE_HASH_SALT                # Drupal hash salt (default to random string)
 SITE_INSTALL_PROFILE          # Drupal installation profile (default to standard)
+SITE_INSTALL_EXTRA            # Drupal installation extra parameter(s) to be used during `drush si`
+
 PRIVATE_FILES                 # Path to private files diretory (add it to settings on bootstrap)
 DEFAULT_CONTENT               # Default content modules to use
 LOG_DIR                       # Default to /var/www/log (behat and phpunit output directories are inside)
