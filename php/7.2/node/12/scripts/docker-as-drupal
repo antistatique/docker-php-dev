@@ -11,6 +11,7 @@ set -e
 : ${SITE_HASH_SALT:=""}
 : ${SITE_TRUSTED_HOST_PATTERNS:=""}
 : ${SITE_INSTALL_PROFILE:="standard"}
+: ${SITE_INSTALL_EXTRA:=""}
 : ${PRIVATE_FILES:=""}
 : ${SERVICES_FILE:=""}
 : ${DEFAULT_CONTENT:=""}
@@ -567,7 +568,7 @@ if [ "$1" = "bootstrap" ]; then
       cd web
 
       # Install drupal
-      drush si $SITE_INSTALL_PROFILE --db-url=$DATABASE_URL --site-name="$SITE_NAME" --account-name=admin --account-pass=admin --account-mail="dev@antistatique.net" -y
+      drush si $SITE_INSTALL_PROFILE --db-url=$DATABASE_URL --site-name="$SITE_NAME" --account-name=admin --account-pass=admin --account-mail="dev@antistatique.net" -y $SITE_INSTALL_EXTRA
 
       # Remove unwanted content from database that break config import.
       drush -q ev '\Drupal::entityManager()->getStorage("shortcut_set")->load("default")->delete();' >/dev/null 2>&1 || true
