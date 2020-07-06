@@ -1,7 +1,7 @@
-FROM php:7.2-apache
+FROM php:7.4-apache
 
 ENV APACHE_DOCUMENT_ROOT /var/www/web
-ENV NODE_MAJOR_VERSION 8
+ENV NODE_MAJOR_VERSION 12
 
 ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
 ENV ARTIFACTS_DEST="/usr/bin/artifacts"
