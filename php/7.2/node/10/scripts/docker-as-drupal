@@ -17,7 +17,7 @@ set -e
 : ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
 : ${LOG_DIR:="/var/www/log"}
 : ${DRUPAL_CONFIG_SET:=""}
-
+: ${DRUPAL_VERSION:=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)}
 : ${BEHAT_PROFILE:="default"}
 : ${PHPUNIT_DEFAULT_GROUP:=""}
 : ${PHPUNIT_DEFAULT_EXCLUDE_GROUP:=""}
@@ -187,9 +187,6 @@ function setup() {
     cp ./web/sites/default/default.settings.php ./web/sites/default/settings.php
   fi
   chmod 664 --quiet ./web/sites/default/settings.php || true
-
-  # Get the Drupal version.
-  DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
 
   # Since Drupal 8.8.x, $config_directories has been deprecated. @see https://www.drupal.org/node/3018145
   if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "8" ]
@@ -411,9 +408,6 @@ function import_drupal_config() {
   # Final attempt to update database and entities
   printf "\e[1;35m* Update database and entities.\e[0m\n"
   drush updatedb -y
-
-  # Get the Drupal version.
-  DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
 
   # Since Drupal 8.7.x, entity:update has been deprecated.
   if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
