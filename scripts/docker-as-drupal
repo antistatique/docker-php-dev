@@ -416,7 +416,7 @@ function import_drupal_config() {
    DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
 
   # Since Drupal 8.7.x, entity:update has been deprecated.
-  if [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
+  if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
   then
     drush entity:update -y
   fi
