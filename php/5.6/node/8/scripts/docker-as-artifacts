@@ -15,10 +15,10 @@ export ARTIFACTS_REGION=${ARTIFACTS_REGION:="eu-west-1"}
 function print_help() {
   echo "usage: $SCRIPT_NAME <dir> [options]
 
-  Upload given artifacts directory into an Amazone S3 bucket.
+  Upload given artifacts directory into an Amazon S3 bucket.
 
-  --local-dir=<dir>        # Directory to upload on Amazone S3.
-  --remote-dir=<dir>       # Directory name into Amazone S3.
+  --local-dir=<dir>        # Directory to upload on Amazon S3.
+  --remote-dir=<dir>       # Directory name into Amazon S3.
   --with-install           # Install artifacts
   --recursive              # Upload artifacts recursively
   -- <...>                 # Any artifacts valid args

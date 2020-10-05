@@ -24,6 +24,7 @@ The version for PHP and Node can be selected in image tag, follwing versions are
   * Node 8
   * Node 10
 * PHP 7.1
+  * Node 6
   * Node 8
   * Node 9
   * Node 10
@@ -39,6 +40,8 @@ The version for PHP and Node can be selected in image tag, follwing versions are
   * Node 10
   * Node 11
   * Node 12
+* PHP 7.4
+  * Node 12
 
 ### Drupal setup
 
@@ -50,6 +53,9 @@ Following environement variable are available:
 ```bash
 APACHE_DOCUMENT_ROOT          # Apache Document Root (default to "/var/www/web")
 PHP_MEMORY_LIMIT              # Set PHP mermory limit (default to "256M")
+
+APP_ENV                       # Eq: development, test, production. This environment variable
+                              # is used to load specific settings per environment.
 
 DATABASE_URL                  # Database URL scheme, should be different for dev and test services
 DATABASE_DUMP                 # Database dump file path (default to "/var/backups/db-reset.sql"). Must
@@ -64,6 +70,7 @@ PRIVATE_FILES                 # Path to private files diretory (add it to settin
 DEFAULT_CONTENT               # Default content modules to use
 LOG_DIR                       # Default to /var/www/log (behat and phpunit output directories are inside)
 REQUIRED_DIRECTORIES          # List of directories to create (separate by space)
+DRUPAL_CONFIG_SET             # Configurations keys to be overriden
 
 BEHAT_PROFILE                 # Behat config profile (default to "default")
 PHPUNIT_DEFAULT_GROUP         # Default phpunit group used if "--group" is not set
@@ -108,6 +115,7 @@ services:
       - db
       - mail
     environment:
+      APP_ENV: development
       DATABASE_URL: mysql://drupal:drupal@db/drupal_development
       PRIVATE_FILES: /var/www/web/sites/default/files/private
       DEFAULT_CONTENT: project_default_content
@@ -126,6 +134,7 @@ services:
       - db
       - mail
     environment:
+      APP_ENV: test
       DATABASE_URL: mysql://drupal:drupal@db/drupal_test
       PRIVATE_FILES: /var/www/web/sites/default/files/private
       DEFAULT_CONTENT: project_default_content
@@ -161,10 +170,43 @@ volumes:
   backups:
 ```
 
+**settings.php files**
+You can create different PHP settings file based on the `APP_ENV` environment.
+The format is `${APP_ENV}.settings.php`:
+
+```
+# ./web/sites/default/development.settings.php
+
+$settings['container_yamls'][] = DRUPAL_ROOT . '/sites/development.services.yml';
+$config['backerymails.settings']['reroute']['status'] = TRUE;
+// ...
+```
+
+Finally, a local settings PHP file is loaded if you create the script `./web/sites/default/settings.local.php`.
+
 Use `docker-compose up` to start services then following command to boostrap (or reset) the
 Drupal installation: `docker-compose exec dev docker-as-drupal bootstrap`. Test service must
 be started manualy after bootstrap by running `docker-compose restart test`.
 
+
+**DRUPAL_CONFIG_SET**
+
+The Drupal Configurations Override environement variable is kind of special. It may contain 1 or many items te be declared as follow:
+
+Single
+```
+  DRUPAL_CONFIG_SET: >-
+    search_api.server.solr backend_config.connector_config.host solr
+```
+
+Multiple
+```
+  DRUPAL_CONFIG_SET: >-
+    search_api.server.solr backend_config.connector_config.host solr;
+    search_api.server.solr backend_config.connector_config.core watchdreamer
+```
+
+_Note the trailing `;` at the end of each line - excepted on the last one._
 
 ### Custom docker image
 
@@ -446,9 +488,21 @@ docker-compose exec test docker-as-drupal quality-check [options]
 ```
 
 ## Work on the docker image
-
+After updating `/scripts/*` don't forget to update all PHP images by running the following command:
 ```bash
 ./update.sh
-./update.sh --build=<7.2-node9|all|latest>
-./update.sh --publish==<7.2-node9|all|latest>
 ```
+
+You can also locally build all images or a specific one:
+
+```bash
+./update.sh --build=<7.2-node9|all|latest>
+```
+
+And if you have the credentials (run `docker login`), you can manually publish an image:
+
+```bash
+./update.sh --publish=<7.2-node9|all|latest>
+```
+
+But CodeShip take care of this on the default branch.

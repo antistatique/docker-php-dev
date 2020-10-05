@@ -6,6 +6,8 @@ ENV NODE_MAJOR_VERSION 8
 ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
 ENV ARTIFACTS_DEST="/usr/bin/artifacts"
 
+ENV COMPOSER_MEMORY_LIMIT=-1
+
 # Install dependencies
 RUN set -ex; \
   \
@@ -26,11 +28,19 @@ RUN set -ex; \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
+    libwebp-dev \
     libzip-dev \
   ; \
   \
   # install the PHP extensions we need
-  docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
+  # GD configuration changed in PHP >7.4. See: https://github.com/docker-library/php/pull/910#issuecomment-559383597
+  # test if $PHP_VERSION > 7.4 (source: https://stackoverflow.com/a/24067243)
+  if [ "$(printf '%s\n' $PHP_VERSION 7.4 | sort -V | head -n 1)" != "$PHP_VERSION" ]; then \
+    docker-php-ext-configure gd --with-jpeg --with-webp; \
+  else \
+    docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr --with-webp-dir=/usr; \
+  fi; \
+  \
   docker-php-ext-install -j "$(nproc)" \
     bcmath \
     gd \
@@ -81,16 +91,10 @@ RUN set -ex; \
   # install node related dependencies
   if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
     apt-get install -y --no-install-recommends \
-      nodejs \
+      nodejs=$NODE_MAJOR_VERSION.* \
       python2.7 \
       yarn \
     ; \
-    # npm is not installed as nodejs dependency on previous versions
-    if [ "$NODE_MAJOR_VERSION" -lt "10" ]; then \
-      apt-get install -y --no-install-recommends \
-        npm \
-      ; \
-    fi; \
     \
     npm config set --global python python2.7; \
   fi; \

@@ -1,0 +1,1497 @@
+#!/usr/bin/env bash
+set -e
+
+# Environement variables
+: ${DATABASE_URL:="mysql://root:root@db/drupal"}
+: ${DATABASE_DUMP:="/var/backups/db-reset.sql"}
+: ${SMTP_HOST:="mail:1025"}
+: ${SITE_NAME:="Drupal Website"}
+: ${SITE_CONFIG_DIR:="/var/www/config/d8/sync"}
+: ${SITE_UUID:=$(sed -n -e '/uuid:/ s/.*\: *//p' ${SITE_CONFIG_DIR}/system.site.yml)}
+: ${SITE_HASH_SALT:=""}
+: ${SITE_TRUSTED_HOST_PATTERNS:=""}
+: ${SITE_INSTALL_PROFILE:="standard"}
+: ${PRIVATE_FILES:=""}
+: ${SERVICES_FILE:=""}
+: ${DEFAULT_CONTENT:=""}
+: ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
+: ${LOG_DIR:="/var/www/log"}
+: ${DRUPAL_CONFIG_SET:=""}
+: ${DRUPAL_VERSION:=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)}
+: ${BEHAT_PROFILE:="default"}
+: ${PHPUNIT_DEFAULT_GROUP:=""}
+: ${PHPUNIT_DEFAULT_EXCLUDE_GROUP:=""}
+: ${SIMPLETEST_BASE_URL:="http://test:8888"}
+: ${SIMPLETEST_DB:="$DATABASE_URL"}
+: ${SYMFONY_DEPRECATIONS_HELPER:="weak"}
+: ${TEST_SERVER_PORT:="8888"}
+: ${CONFIG_IMPORT_ATTEMPTS:="5"}
+: ${DISABLE_DEVELOPMENT:=0}
+: ${LOCK_TIME:=""}
+: ${TEST_DISABLE_MODULES:="big_pipe"}
+: ${TEST_ENABLE_MODULES:=""}
+: ${TEST_USER:=""}
+: ${DRUPAL_NIGHTWATCH_CONFIG_SET:=""}
+
+# Script variables
+BROWSERTEST_OUTPUT_DIRECTORY="/var/www/web/sites/simpletest"
+DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
+DATABASE_NAME=${DATABASE_URL##*/}
+DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
+DEFAULT_CONTENT_MODULES=""
+DRUPAL_IS_INSTALLED=0
+RELATIVE_SITE_CONFIG_DIR=$(realpath --relative-to=/var/www/web ${SITE_CONFIG_DIR})
+SCRIPT_NAME=$(basename $0)
+TEST_SERVER_HOST="0.0.0.0"
+
+# Print help
+function print_help() {
+  echo "usage: $SCRIPT_NAME <action> [options]
+
+  * bootstrap
+
+    Install Drupal, dependencies and build styleguide. Require config export, do not bootstrap
+    a new projet.
+
+    --skip-dependencies      # Do not run composer and yarn install
+    --skip-install           # Do not run Drupal install (only if arealdy installed)
+    --skip-db-reset          # Do not reset database using SQL dump (only when --skip-install)
+    --skip-styleguide-build  # Do not run yarn build
+    --with-default-content   # Load default content (force reset database when --skip-install)
+    --install-only           # Same as --skip-dependencies --skip-styleguide-build
+
+  * setup
+
+    Ensure Drupal is porper setup (settings.php, private files, mail settings, ...).
+
+    --with-dependencies      # Run composer and yarn install
+
+  * db-reset
+
+    Reset database using SQL dump made after bootstrap (or using --update-dump).
+
+    --update-dump            # Update database dump (include updated Drupal config, but not
+                             # default content)
+    --with-default-content   # Load default content (before dump)
+
+  * db-dump
+
+    Create a database dump that can be used as with db-restore (not with db-reset).
+
+    --file=<path>            # Path to dump file (not required)
+
+  * db-restore
+
+    Restore database from dump created with db-dump.
+
+    --file=<path>            # Path to dump file (not required)
+
+  * db-update
+
+    Update database, entities and import config.
+
+  * php-server
+
+    Run web server using 'drush runserver'. Reset database if not present.
+
+    --with-db-reset          # Reset database before launch server
+    --with-default-content   # Load default content (force reset database)
+    --help                   # Display runserver help
+    -- <...>                 # any runserver valid args
+
+  * apache-server
+
+    Run web server using 'apache'. Reset database if not present.
+
+    --with-db-reset          # Reset database before launch server
+    --with-default-content   # Load default content (force reset database)
+    --cache                  # Do not invalidate opcache (server must be restarted
+                             # reload cache)
+    --help                   # Display apache help
+    -- <...>                 # any apache valid args
+
+  * behat
+
+    Run behat tests.
+
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before)
+    --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+    --with-dependencies      # Run composer and yarn install
+    --help                   # Display behat help
+    -- <...>                 # any behat valid args
+
+  * nightwatch
+
+    Run nightwatch tests.
+
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before)
+    --skip-default-content   # Do not load default content (maybe break the tests, ignored when db is reset)
+    --with-dependencies      # Run composer and yarn install
+    --group=<group>          # Only runs tests from the specified group(s)
+    --help                   # Display nightwatch help
+    -- <...>                 # any nightwatch valid args
+
+  * phpunit
+
+    Run phpunits tests.
+
+    --skip-db-empty          # Do not empty database (drop and create), but reset it if --skip-db-reset
+                             # is not used
+    --skip-db-reset          # Do not reset database (to use only if database was reset just before),
+                             # only valid with --skip-db-empty or --with-defaut-content
+    --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+    --with-default-content   # Load default content (force reset database if --skip-db-reset is not used)
+    --with-dependencies      # Run composer and yarn install
+    --group=<group>          # Only runs tests from the specified group(s)
+    --exclude-group=<group>  # Exclude tests from the specified group(s)
+    --tests-only             # Same as --skip-db-empty
+    --help                   # Display phpunit help
+    -- <...>                 # any phpunit valid args
+
+  * quality-check
+
+  Run code quality tools (phpcs, phpmc, phpcpd).
+
+    --skip-phpcs             # Do not run phpcs
+    --skip-phpmd             # Do not run phpmd
+    --skip-phpcpd            # Do not run phpcpd
+    --fail-on-phpcs          # Command fail if phpcs fail too
+    --fail-on-phpmd          # Command fail if phpmd fail too
+    --fail-on-phpcpd         # Command fail if phpcpd fail too
+
+  * run
+
+    Run any shell command.
+
+    --with-db-reset          # Reset database before launch server
+    --with-default-content   # Load default content (force reset database)
+    -- <...>                 # any command with args
+  "
+}
+
+# Setup services.yml, settings.php file, database connection and directory for private files
+function setup() {
+
+  # Setup services.yml file
+  if [ ! -z "$SERVICES_FILE" ] && [ -f "$SERVICES_FILE" ] ; then
+    printf "\e[1;35m* Copy services.yml file.\e[0m\n"
+    cp $SERVICES_FILE ./web/sites/default/services.yml
+  fi
+
+  printf "\e[1;35m* Update settings.php file.\e[0m\n"
+
+  # Be sure to have a settings.php file with correct rights.
+  mkdir -p ./web/sites/default
+  chmod 775 ./web/sites/default
+  if [ ! -f ./web/sites/default/settings.php ]; then
+    cp ./web/sites/default/default.settings.php ./web/sites/default/settings.php
+  fi
+  chmod 664 --quiet ./web/sites/default/settings.php || true
+
+  # Since Drupal 8.8.x, $config_directories has been deprecated. @see https://www.drupal.org/node/3018145
+  if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "8" ]
+  then
+    # Fix config directory in settings file
+    sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+  else
+    # Replace # $settings['config_sync_directory'] = '/directory/outside/webroot'; by our proper sync folder.
+    sed -ri -e "s@^.*\\\$settings\['config_sync_directory'\].+;@\\\$settings\['config_sync_directory'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
+  fi
+
+  # Set Hash Salt
+  if ! grep -Eq "\\\$settings\['hash_salt'\] = '.+'" ./web/sites/default/settings.php; then
+    : ${SITE_HASH_SALT:=$(drush php-eval -q 'echo \Drupal\Component\Utility\Crypt::randomBytesBase64(55) . "\n";')}
+    sed -ri -e "s@^\\\$settings\['hash_salt'\].+;@\\\$settings\['hash_salt'\] = '$SITE_HASH_SALT';@g" ./web/sites/default/settings.php
+  fi
+
+  # Use DATABASE_URL to populate database config
+  if ! grep -q 'convertDbUrlToConnectionInfo' ./web/sites/default/settings.php; then
+    echo '$databases["default"]["default"] = \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo(getenv("DATABASE_URL"), DRUPAL_ROOT);' >> ./web/sites/default/settings.php
+  fi
+
+  if [ ! -z "$SITE_TRUSTED_HOST_PATTERNS" ] && [ ! $(grep -Eq "\\\$settings\['trusted_host_patterns'\] = '.+'" ./web/sites/default/settings.php) ] ; then
+    printf "\e[1;35m* Setup trusted host(s).\e[0m\n"
+
+    HOST_PATTERNS="["
+    for host_pattern in $SITE_TRUSTED_HOST_PATTERNS; do
+      HOST_PATTERNS+="${host_pattern},"
+      echo $host_pattern;
+    done
+    HOST_PATTERNS+="'^127\.0.\0.\1$','^localhost$',]"
+
+    echo '$settings["trusted_host_patterns"] = '$HOST_PATTERNS';' >> ./web/sites/default/settings.php
+  fi
+
+  # Disabling "automated cron"
+  if ! grep -Eq "\\\$config\['automated_cron.settings'\]\['interval'\]" ./web/sites/default/settings.php; then
+    echo "\$config['automated_cron.settings']['interval'] = '0';" >> ./web/sites/default/settings.php
+  fi
+
+  # Setup mailer
+  printf "\e[1;35m* Setup mail host.\e[0m\n"
+  if ! grep -Eq "\\\$config\['swiftmailer.transport'\]\['(smtp_host|smtp_port|smtp_encryption|transport)'\]" ./web/sites/default/settings.php; then
+    echo "\$config['swiftmailer.transport']['transport'] = 'smtp';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_host'] = '${SMTP_HOST%:*}';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_port'] = '${SMTP_HOST#*:}';" >> ./web/sites/default/settings.php
+    echo "\$config['swiftmailer.transport']['smtp_encryption'] = '0';" >> ./web/sites/default/settings.php
+  else
+    sed -ri -e "s@^\\\$config\['swiftmailer.transport'\]\['smtp_host'\].+;@\\\$config\['swiftmailer.transport'\]\['smtp_host'\] = '${SMTP_HOST%:*}';@g" ./web/sites/default/settings.php
+    sed -ri -e "s@^\\\$config\['swiftmailer.transport'\]\['smtp_port'\].+;@\\\$config\['swiftmailer.transport'\]\['smtp_port'\] = '${SMTP_HOST#*:}';@g" ./web/sites/default/settings.php
+  fi
+
+  # Setup directory for private files
+  if [ ! -z "$PRIVATE_FILES" ]; then
+    printf "\e[1;35m* Setup private files.\e[0m\n"
+
+    sed -ri -e "s@#?.*\\\$settings\['file_private_path'\].+;@\\\$settings\['file_private_path'\] = '$PRIVATE_FILES';@g" ./web/sites/default/settings.php
+
+    mkdir -p "$PRIVATE_FILES"
+    chmod -R 777 "$PRIVATE_FILES"
+    find "$PRIVATE_FILES" -type f -executable -exec chmod -x {} \;
+    find "$PRIVATE_FILES" -type d -exec chmod +xs {} \;
+  fi
+
+  # Include environement and local settings if they exists
+  if ! grep -Eq "\[INCLUDE\] Environment specific settings files." ./web/sites/default/settings.php; then
+    cat <<EOT >> ./web/sites/default/settings.php
+// [INCLUDE] Environment specific settings files.
+if (getenv('APP_ENV')) {
+  if (file_exists(__DIR__ . '/' . getenv('APP_ENV') . '.settings.php')) {
+    include __DIR__ . '/' . getenv('APP_ENV') . '.settings.php';
+  }
+}
+// Last: this servers specific settings files.
+if (file_exists(__DIR__ . '/settings.local.php')) {
+  include __DIR__ . '/settings.local.php';
+}
+EOT
+  fi
+
+  # Create required directories
+  printf "\e[1;35m* Setup required directories.\e[0m\n"
+
+  echo mkdir $LOG_DIR
+  mkdir -p $LOG_DIR
+  chmod -R 777 "$LOG_DIR"
+  find "$LOG_DIR" -type f -executable -exec chmod -x {} \;
+  find "$LOG_DIR" -type d -exec chmod +xs {} \;
+
+  for dir in $REQUIRED_DIRECTORIES; do
+    echo mkdir "$dir"
+    mkdir -p "$dir"
+    chmod -R 777 "$dir"
+    find "$dir" -type f -executable -exec chmod -x {} \;
+    find "$dir" -type d -exec chmod +xs {} \;
+  done
+
+  # Setup directory for translations
+  mkdir -p ./web/sites/default/files/translations
+
+  # Fix rights on "files" directories
+  chmod -R 777 ./web/sites/default/files
+  find ./web/sites/default/files -type f -executable -exec chmod -x {} \;
+  find ./web/sites/default/files -type d -exec chmod +xs {} \;
+}
+
+# Return TRUE if Drupal is already installed (database is ready)
+function drupal_is_installed() {
+  if [ $DRUPAL_IS_INSTALLED -eq 0 ]; then
+    DRUPAL_IS_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1" >/dev/null 2>&1 && echo 1 || echo 0)
+  fi
+
+  [ $DRUPAL_IS_INSTALLED -eq 1 ]
+}
+
+# Return FALSE if Drupal is not already installed (database is not ready)
+function drupal_not_installed() {
+  ! drupal_is_installed
+}
+
+# Return TRUE if yarn is installed
+function yarn_is_installed() {
+  command -v yarn > /dev/null 2>&1
+}
+
+# Return TRUE if development mode is enbale (default)
+function is_development() {
+  [ $DISABLE_DEVELOPMENT -ne 0 ]
+}
+
+# Install dependencies
+function install_dependencies() {
+  printf "\e[1;35m* Install dependencies.\e[0m\n"
+
+  composer install --prefer-dist --no-progress --no-suggest --no-interaction
+  if yarn_is_installed && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
+    yarn install --no-progress --non-interactive
+  fi
+}
+
+# Reset database with dump made before loading default content on bootstrap.
+function database_reset() {
+  FILE_PATH=${1:-"$DATABASE_DUMP"}
+
+  if [ -f $FILE_PATH ]; then
+    printf "\e[1;35m* Reset database.\e[0m\n"
+    if drupal_not_installed; then
+      printf "\e[1;35m* (Maybe forced because it is not installed).\e[0m\n"
+    fi
+  elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
+    printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
+    return 1
+  else
+    printf "\e[01;31No database dump found, run '$SCRIPT_NAME bootstrap' first.\e[0m\n"
+    return 1
+  fi
+
+  # Drop and create database
+  drush sql:create -y
+
+  # Load database dump to reset its state
+  $(drush sql:connect) < $FILE_PATH
+
+  # Load Drupal config
+  import_drupal_config
+
+  # Set Drupal install env to TRUE
+  DRUPAL_IS_INSTALLED=1
+}
+
+# Dump database
+function database_dump() {
+  FILE_PATH=${1:-"$DATABASE_DUMP"}
+
+  printf "\e[1;35m* Dump database.\e[0m\n"
+
+  mkdir -p $(dirname $FILE_PATH)
+  drush sql-dump --result-file=$FILE_PATH -y
+}
+
+# Import Drupal config
+#
+# Sometimes Drupal import configs in wrong orders.
+# So we repeat the config-import max. 4 times on successives fails.
+function import_drupal_config() {
+  # Rebuild cache
+  drush cache-rebuild
+
+  # First attemps to update database (may fail)
+  printf "\e[1;35m* Update database (may fail).\e[0m\n"
+  drush updatedb -y || true
+
+  printf "\e[1;35m* Import drupal configuration.\e[0m\n"
+  (
+    set +e
+
+    cat /dev/null > $LOG_DIR/config-import.log
+
+    attempt=1
+    until cat $LOG_DIR/config-import.log | grep "configuration was imported successfully" > /dev/null; do
+      if [ "$attempt" -ge "$CONFIG_IMPORT_ATTEMPTS" ]; then
+        printf "\e[1;35m* Exit due to too many configuration import attempts.\e[0m\n"
+        exit 1
+      fi
+
+      drush config-import -y --source="$RELATIVE_SITE_CONFIG_DIR" 2>&1 | tee -a $LOG_DIR/config-import.log
+
+      if cat $LOG_DIR/config-import.log | grep "There are no changes to import" > /dev/null; then
+        break;
+      fi
+      attempt=$(( attempt+1 ))
+    done
+  )
+
+  # Fix Sitename bugged keep display "| Drupal"
+  # @see https://www.drupal.org/node/2851877
+  drush -q ev '\Drupal::languageManager()->getLanguageConfigOverrideStorage("fr")->delete("system.site");' >/dev/null 2>&1 || true
+
+  # Final attempt to update database and entities
+  printf "\e[1;35m* Update database and entities.\e[0m\n"
+  drush updatedb -y
+
+  # Since Drupal 8.7.x, entity:update has been deprecated.
+  if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
+  then
+    drush entity:update -y
+  fi
+
+  # Set custom Drupal config
+  IFS=';' read -r -a configs <<< "$DRUPAL_CONFIG_SET"
+  for config in "${configs[@]}"; do
+    printf "\e[1;35m* config-setup ${config}.\e[0m\n"
+    drush cset ${config} -y
+  done
+
+  # Rebuild cache
+  drush cache-rebuild
+}
+
+# Setup Elasticsearch server using Elasticsearch Helper
+function setup_elasticsearch() {
+  (
+    set +e
+      printf "\e[1;35m* Setup Elasticsearch.\e[0m\n"
+      # Drop Elasticsearch indices.
+      drush eshd -y
+      # Setup Elasticsearch indices.
+      drush eshs
+  )
+}
+
+# Warmup content to Elasticsearch using Elasticsearch Helper
+function warmup_elasticsearch() {
+  (
+    set +e
+      printf "\e[1;35m* Warmup Elasticsearch.\e[0m\n"
+      # Mark for reindexation entities associated with an Elasticsearch index.
+      drush eshr
+      # Run indexation.
+      drush queue-run elasticsearch_helper_indexing
+  )
+}
+
+# Load default content in database
+function enable_default_content() {
+  (
+    set +e
+
+    if [ ! -z "$DEFAULT_CONTENT" ]; then
+      printf "\e[1;35m* Load default contents.\e[0m\n"
+
+      lock_time
+      disable_default_content
+      DEFAULT_CONTENT_MODULES="$(drush pm-list --field=name --status=enabled | sort)"
+      if [ -z "$TEST_USER" ]; then
+        drush en $DEFAULT_CONTENT -y
+      else
+        sudo -u $TEST_USER -E /var/www/vendor/bin/drush en $DEFAULT_CONTENT -y
+      fi
+      DEFAULT_CONTENT_MODULES=$(comm -13 <(echo "$DEFAULT_CONTENT_MODULES") <(drush pm-list --field=name --status=enabled | sort))
+      free_time
+    fi
+  )
+}
+
+# Disable default content modules
+function disable_default_content() {
+  if [ ! -z "$DEFAULT_CONTENT_MODULES" ] || drush pm-list --field=name --status=enabled | grep -q 'default_content'; then
+    : ${DEFAULT_CONTENT_MODULES:="default_content"}
+    drush pmu $DEFAULT_CONTENT_MODULES -y
+  fi
+}
+
+# Enable fake time
+function lock_time() {
+  if [ ! -z "$LOCK_TIME" ]; then
+    export LD_PRELOAD="/usr/local/lib/faketime/libfaketime.so.1"
+    export FAKETIME="${LOCK_TIME:-$1}"
+  fi
+}
+
+# Disable fake time
+function free_time() {
+  unset LD_PRELOAD
+}
+
+#
+# BOOTSTRAP Drupal
+#
+if [ "$1" = "bootstrap" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=0
+  SKIP_INSTALL=0
+  SKIP_DB_RESET=0
+  SKIP_DEFAULT_CONTENT=1
+  SKIP_ELASTICSEARCH=1
+  SKIP_STYLEGUIDE=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-dependencies)
+        SKIP_DEPENDENCIES=1
+        ;;
+      --skip-install)
+        SKIP_INSTALL=1
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        ;;
+      --with-elasticsearch)
+        SKIP_ELASTICSEARCH=0
+        ;;
+      --skip-styleguide-build)
+        SKIP_STYLEGUIDE=1
+        ;;
+      --install-only|--only-install)
+        SKIP_DEPENDENCIES=1
+        SKIP_DEFAULT_CONTENT=1
+        SKIP_STYLEGUIDE=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Install Drupal
+  if [ $SKIP_INSTALL -eq 0 ] || (drupal_not_installed && [ ! -f $DATABASE_DUMP ]); then
+    printf "\e[1;35m* Install Drupal from scratch.\e[0m\n"
+    if [ $SKIP_INSTALL -eq 1 ] && drupal_not_installed; then
+      printf "\e[1;35m* (forced beceause not installed).\e[0m\n"
+    fi
+
+    (
+      set -e
+
+      # move in web directory
+      cd web
+
+      # Install drupal
+      drush si $SITE_INSTALL_PROFILE --db-url=$DATABASE_URL --site-name="$SITE_NAME" --account-name=admin --account-pass=admin --account-mail="dev@antistatique.net" -y
+
+      # Remove unwanted content from database that break config import.
+      drush -q ev '\Drupal::entityTypeManager()->getStorage("shortcut_set")->load("default")->delete();' >/dev/null 3>&1 || true
+
+      # Fix Drupal UUID in database config
+      drush config-set system.site uuid "$SITE_UUID" -y
+    )
+
+    # Load config
+    import_drupal_config
+
+    # Save database dump after install
+    database_dump
+
+  # Or reset database?
+  elif [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    printf "\e[1;35m* Skip install Drupal from scratch. But reset database.\e[0m\n"
+
+    # Reset the database
+    database_reset
+
+  else
+    printf "\e[1;35m* Skip install Drupal from scratch.\e[0m\n"
+  fi
+
+  # Setup Elasticsearch content before default content
+  if [ $SKIP_ELASTICSEARCH -eq 0 ] && drupal_is_installed; then
+    setup_elasticsearch
+  fi
+
+  # Load default content (then disable module)
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
+    enable_default_content
+    disable_default_content
+  fi
+
+  # Warmup Elasticsearch content
+  if [ $SKIP_ELASTICSEARCH -eq 0 ] && drupal_is_installed; then
+    warmup_elasticsearch
+  fi
+
+  # Build styleguide assets
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ] && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
+    yarn build --production
+  fi
+
+#
+# CREATE SETTINGS FILE
+#
+elif [ "$1" = "setup" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+#
+# RESET DATABASE
+#
+elif [ "$1" = "db-reset" ]; then
+  shift
+
+  SKIP_DEFAULT_CONTENT=1
+  SKIP_ELASTICSEARCH=1
+  UPDATE_DATABASE_DUMP=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        ;;
+      --with-elasticsearch)
+        SKIP_ELASTICSEARCH=0
+        ;;
+      --update-dump)
+        UPDATE_DATABASE_DUMP=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database without default content
+  database_reset
+
+  # Save database dump after reset (including drupal config update)
+  if [ $UPDATE_DATABASE_DUMP -eq 1 ]; then
+    database_dump
+  fi
+
+  # Setup Elasticsearch content before default content
+  if [ $SKIP_ELASTICSEARCH -eq 0 ]; then
+    setup_elasticsearch
+  fi
+
+  # Load default content (then disable module)
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+    disable_default_content
+  fi
+
+  # Warmup Elasticsearch content
+  if [ $SKIP_ELASTICSEARCH -eq 0 ]; then
+    warmup_elasticsearch
+  fi
+
+#
+# DUMP DATABASE
+#
+elif [ "$1" = "db-dump" ]; then
+  shift
+
+  FILE_PATH="/var/backups/db-dump.sql"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --file=*)
+        if [ -d "$(dirname ${1#*=})" ]; then
+          FILE_PATH="${1#*=}"
+        else
+          printf "\e[01;35m'$(dirname ${1#*=})\` is not a directory.\e[0m\n\n"
+          exit 1;
+        fi
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Save database dump
+  database_dump "$FILE_PATH"
+
+#
+# RESTORE DATABASE
+#
+elif [ "$1" = "db-restore" ]; then
+  shift
+
+  FILE_PATH="/var/backups/db-dump.sql"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --file=*)
+        if [ -f "${1#*=}" ]; then
+          FILE_PATH="${1#*=}"
+        else
+          printf "\e[01;35m'${1#*=}\` not found.\e[0m\n\n"
+          exit 1;
+        fi
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database without default content
+  database_reset "$FILE_PATH"
+
+#
+# UPDATE DATABASE
+#
+elif [ "$1" = "db-update" ]; then
+  shift
+
+  # Setup settings & Co.
+  setup
+
+  # Load config
+  import_drupal_config
+
+#
+# RUN PHP SERVER
+#
+elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
+  shift
+
+  SKIP_DB_RESET=1
+  SKIP_DEFAULT_CONTENT=1
+  SKIP_ELASTICSEARCH=1
+  SKIP_STYLEGUIDE=1
+  TEST_SERVER_ARGS=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-db-reset)
+        SKIP_DB_RESET=0
+        ;;
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        ;;
+      --with-elasticsearch)
+        SKIP_ELASTICSEARCH=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
+        ;;
+      *:*)
+        TEST_SERVER_PORT=${1#*:}
+        ;;
+      --help)
+        print_help
+        drush runserver --help
+        exit $?
+        ;;
+      --)
+        shift
+        TEST_SERVER_ARGS=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
+    database_reset || true
+  fi
+
+  # Setup Elasticsearch content before default content
+  if [ $SKIP_ELASTICSEARCH -eq 0 ] && drupal_is_installed; then
+    setup_elasticsearch
+  fi
+
+  # Load default content (then disable module)
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
+    enable_default_content
+    disable_default_content
+  fi
+
+  # Warmup Elasticsearch content
+  if [ $SKIP_ELASTICSEARCH -eq 0 ] && drupal_is_installed; then
+    warmup_elasticsearch
+  fi
+
+  # Build styleguide
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
+  # Lock time
+  lock_time
+
+  # Run server
+  printf "\e[1;35m* Launch test server.\e[0m\n"
+  drush runserver $TEST_SERVER_HOST:$TEST_SERVER_PORT ${TEST_SERVER_ARGS[@]}
+
+  # Release time lock
+  free_time
+
+#
+# RUN TEST SERVER
+#
+elif [ "$1" = "apache-server" ]; then
+  shift
+
+  SKIP_DB_RESET=1
+  SKIP_DEFAULT_CONTENT=1
+  SKIP_STYLEGUIDE=1
+  TEST_SERVER_CACHE=0
+  TEST_SERVER_ARGS=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-db-reset)
+        SKIP_DB_RESET=0
+        ;;
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
+        ;;
+      --cache)
+        TEST_SERVER_CACHE=1
+        ;;
+      *:*)
+        TEST_SERVER_PORT=${1#*:}
+        ;;
+      --help)
+        print_help
+        apache2-foreground -h
+        exit $?
+        ;;
+      --)
+        shift
+        TEST_SERVER_ARGS=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
+    database_reset || true
+  fi
+
+  # Load default content (then disable module)
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_is_installed; then
+    enable_default_content
+    disable_default_content
+  fi
+
+  # Disable opache file timestemps check
+  if [ $TEST_SERVER_CACHE -eq 1 ]; then
+    echo 'opcache.validate_timestamps=0' >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+  fi
+
+  # Build styleguide
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
+  # Lock time
+  lock_time
+
+  # Run server
+  printf "\e[1;35m* Launch test server.\e[0m\n"
+  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" ${TEST_SERVER_ARGS[@]}
+
+  # Release time lock
+  free_time
+
+
+#
+# RUN BEHAT TESTS
+#
+elif [ "$1" = "behat" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+  SKIP_STYLEGUIDE=1
+  SKIP_DB_RESET=0
+  SKIP_DEFAULT_CONTENT=0
+  WITH_ELASTICSEARCH=0
+  BEHAT_ARGV=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --skip-default-content)
+        SKIP_DEFAULT_CONTENT=1
+        ;;
+      --with-elasticsearch)
+        WITH_ELASTICSEARCH=1
+        ;;
+      --user=*)
+        TEST_USER="${1#*=}"
+        ;;
+      --help)
+        print_help
+        behat --help
+        exit $?
+        ;;
+      --)
+        shift
+        BEHAT_ARGV=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+    database_reset
+  fi
+
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
+  # Setup Elasticsearch content before default content
+  if [ $WITH_ELASTICSEARCH -eq 1 ]; then
+    setup_elasticsearch
+  fi
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+  fi
+
+  # Warmup Elasticsearch content
+  if [ $WITH_ELASTICSEARCH -eq 1 ]; then
+    warmup_elasticsearch
+  fi
+
+  # Disable modules that must not be loaded for tests
+  drush pmu $TEST_DISABLE_MODULES -y
+
+  # Rebuild Drupal cache
+  drush cache-rebuild
+
+  # Build styleguide
+  if yarn_is_installed && [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
+  # Lock time
+  lock_time
+
+  # Run tests
+  if [ -z "$TEST_USER" ]; then
+    /var/www/vendor/bin/behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
+  else
+    sudo -u $TEST_USER -E /var/www/vendor/bin/behat --colors --strict --profile=$BEHAT_PROFILE ${BEHAT_ARGV[@]}
+  fi
+  behat_exit=$?
+
+  # Release time lock
+  free_time
+
+  # To not run this on CI
+  if is_development; then
+
+    # Disable default content
+    disable_default_content
+
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
+    drush en $TEST_DISABLE_MODULES -y
+  fi
+
+  # exit
+  exit $behat_exit
+
+#
+# RUN NIGHTWATCH TESTS
+#
+elif [ "$1" = "nightwatch" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+  SKIP_STYLEGUIDE=1
+  SKIP_DB_RESET=0
+  SKIP_DEFAULT_CONTENT=0
+  WITH_ELASTICSEARCH=0
+  NIGHTWATCH_GROUPS=()
+  NIGHTWATCH_ARGV=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --with-styleguide)
+        SKIP_STYLEGUIDE=0
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --skip-default-content)
+        SKIP_DEFAULT_CONTENT=1
+        ;;
+      --with-elasticsearch)
+        WITH_ELASTICSEARCH=1
+        ;;
+      --group=*)
+        NIGHTWATCH_GROUPS+=("--tag ${1#*=}")
+        ;;
+      --help)
+        print_help
+        yarn nightwatch --help
+        exit $?
+        ;;
+      --)
+        shift
+        NIGHTWATCH_ARGV=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
+    database_reset
+  fi
+
+  # Enable modules that must be loaded for tests
+  drush en $TEST_ENABLE_MODULES -y
+
+  # Setup Elasticsearch content before default content
+  if [ $WITH_ELASTICSEARCH -eq 1 ]; then
+    setup_elasticsearch
+  fi
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+  fi
+
+  # Warmup Elasticsearch content
+  if [ $WITH_ELASTICSEARCH -eq 1 ]; then
+    warmup_elasticsearch
+  fi
+
+  # Disable modules that must not be loaded for tests
+  drush pmu $TEST_DISABLE_MODULES -y
+
+  # Set nightwatch custom Drupal config
+  IFS=';' read -r -a configs <<< "$DRUPAL_NIGHTWATCH_CONFIG_SET"
+  for config in "${configs[@]}"; do
+    printf "\e[1;35m* config-setup ${config}.\e[0m\n"
+    drush cset ${config} -y
+  done
+
+  # Rebuild Drupal cache
+  drush cache-rebuild
+
+  # Build styleguide
+  if [ $SKIP_STYLEGUIDE -eq 0 ]; then
+    yarn build --production
+  fi
+
+  # Lock time
+  lock_time
+
+  # subshell to move in the web/core directory for installing & run tests
+  (
+    cd web/core
+
+    # Install Nightwatch in the core directory
+    yarn install
+
+    # Run tests
+    yarn test:nightwatch ${NIGHTWATCH_GROUPS[@]} ${NIGHTWATCH_ARGV[@]}
+  )
+  nightwatch_exit=$?
+
+  # Release time lock
+  free_time
+
+  # To not run this on CI
+  if is_development; then
+
+    # Disable default content
+    disable_default_content
+
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
+    drush en $TEST_DISABLE_MODULES -y
+  fi
+
+  # exit
+  exit $nightwatch_exit
+
+#
+# RUN PHPUNIT TESTS
+#
+elif [ "$1" = "phpunit" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+  SKIP_DB_RESET=0
+  SKIP_DB_EMPTY=0
+  SKIP_DEFAULT_STOP=0
+  SKIP_DEFAULT_CONTENT=1
+  PHPUNIT_GROUPS=()
+  PHPUNIT_EXCLUDE_GROUPS=()
+  PHPUNIT_ARGV=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        SKIP_DB_EMPTY=1
+        ;;
+      --group=*)
+        PHPUNIT_GROUPS+=("--group ${1#*=}")
+        ;;
+      --exclude-group=*)
+        PHPUNIT_EXCLUDE_GROUPS+=("--exclude-group ${1#*=}")
+        ;;
+      --skip-db-empty)
+        SKIP_DB_EMPTY=1
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --skip-default-stops)
+        SKIP_DEFAULT_STOP=1
+        ;;
+      --tests-only|--only-tests)
+        SKIP_DEPENDENCIES=1
+        SKIP_DB_RESET=1
+        SKIP_DB_EMPTY=1
+        ;;
+      --user=*)
+        TEST_USER="${1#*=}"
+        ;;
+      --help)
+        print_help
+        phpunit --help
+        exit $?
+        ;;
+      --)
+        shift
+        PHPUNIT_ARGV=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Use default group if not in present in arguements
+  if [ -z "$PHPUNIT_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_GROUP" ]; then
+    PHPUNIT_GROUPS=("--group $PHPUNIT_DEFAULT_GROUP")
+  fi
+  if [ -z "$PHPUNIT_EXCLUDE_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_EXCLUDE_GROUP" ]; then
+    PHPUNIT_EXCLUDE_GROUPS=("--exclude-group $PHPUNIT_DEFAULT_EXCLUDE_GROUP")
+  fi
+
+  # Set bacl DATABASE_URL to the simpletest db to reset proper database.
+  DATABASE_URL=$SIMPLETEST_DB
+  export DATABASE_URL
+
+  if [ $SKIP_DEFAULT_STOP -eq 0 ]; then
+    PHPUNIT_ARGV+=(--stop-on-error)
+    PHPUNIT_ARGV+=(--stop-on-failure)
+  fi
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Ensure to have an empty database
+  if [ $SKIP_DB_EMPTY -eq 0 ]; then
+    printf "\e[1;35m* Empty database.\e[0m\n"
+    drush sql:create -y
+
+  # Reset database
+  elif [ $SKIP_DB_RESET -eq 0 ] || ([ $SKIP_DEFAULT_CONTENT -eq 0 ] && drupal_not_installed); then
+    database_reset
+  fi
+
+  if drupal_is_installed; then
+    # Enable modules that must be loaded for tests
+    drush en $TEST_ENABLE_MODULES -y
+  fi
+
+  # Load default content
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+  fi
+
+  if drupal_is_installed; then
+    # Disable modules that must not be loaded for tests
+    drush pmu $TEST_DISABLE_MODULES -y
+
+    # Rebuild Drupal cache
+    drush cache-rebuild
+  fi
+
+  # Ensure log directory exists
+  mkdir -p "$BROWSERTEST_OUTPUT_DIRECTORY"
+  chmod -R 777 "$BROWSERTEST_OUTPUT_DIRECTORY"
+  find "$BROWSERTEST_OUTPUT_DIRECTORY" -type f -executable -exec chmod -x {} \;
+  find "$BROWSERTEST_OUTPUT_DIRECTORY" -type d -exec chmod +xs {} \;
+
+  # Lock time
+  lock_time
+
+  # Run tests
+  (
+    set +e
+
+    # PHP units tests must run in application directory
+    cd web
+
+    # Export require ENV
+    export SYMFONY_DEPRECATIONS_HELPER
+    export SIMPLETEST_DB
+    export SIMPLETEST_BASE_URL
+    export BROWSERTEST_OUTPUT_DIRECTORY
+
+    # Run tests
+    if [ -z "$TEST_USER" ]; then
+      /var/www/vendor/bin/phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
+    else
+      sudo -u $TEST_USER -E /var/www/vendor/bin/phpunit -c core ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} --printer="\Drupal\Tests\Listeners\HtmlOutputPrinter" ${PHPUNIT_ARGV[@]}
+    fi
+  )
+  phpunit_exit=$?
+
+  # Release time lock
+  free_time
+
+  # To not run this on CI or when Drupal is not installed
+  if drupal_is_installed && is_development; then
+
+    # Disable default content
+    disable_default_content
+
+    # Disable modules that was loaded for tests
+    drush pmu $TEST_ENABLE_MODULES -y
+
+    # Re-enable disable modules
+    drush en $TEST_DISABLE_MODULES -y
+  fi
+
+  # exit
+  exit $phpunit_exit
+
+#
+# COMMAND TO RUN
+#
+elif [ "$1" = "run" ]; then
+  shift
+
+  CMD=""
+  SKIP_DB_RESET=1
+  SKIP_DEFAULT_CONTENT=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-db-reset)
+        SKIP_DB_RESET=0
+        ;;
+      --with-default-content)
+        SKIP_DEFAULT_CONTENT=0
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+      --)
+        shift
+        CMD=("$@")
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    database_reset
+  fi
+
+  # Load default content (then disable module)
+  if [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
+    enable_default_content
+    disable_default_content
+  fi
+
+  exec "${CMD[@]}"
+
+#
+# QUALITY CHECK
+#
+elif [ "$1" = "quality-check" ]; then
+  shift
+
+  SKIP_PHPCS=0
+  SKIP_PHPMD=0
+  SKIP_PHPCPD=0
+  FAIL_ON_PHPCS=0
+  FAIL_ON_PHPMD=0
+  FAIL_ON_PHPCPD=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-phpcs)
+        SKIP_PHPCS=1
+        ;;
+      --skip-phpmd)
+        SKIP_PHPMD=1
+        ;;
+      --skip-phpcpd)
+        SKIP_PHPCPD=1
+        ;;
+      --fail-on-phpcs)
+        FAIL_ON_PHPCS=1
+        ;;
+      --fail-on-phpmd)
+        FAIL_ON_PHPMD=1
+        ;;
+      --fail-on-phpcpd)
+        FAIL_ON_PHPCPD=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  if [ -d /var/www/behat ]; then
+    BEHAT="./behat"
+  fi
+
+  (
+    set +e
+    phpcs_exit=0
+    phpmd_exit=0
+    phpcpd_exit=0
+
+    if [ $SKIP_PHPCS -eq 0 ] && command -v phpcs >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Code Sniffer Drupal & DrupalPractice for /web/modules/custom ...\e[0m\n"
+
+      phpcs --config-set installed_paths "/var/www/vendor/drupal/coder/coder_sniffer"
+      phpcs --standard=Drupal,DrupalPractice --colors --encoding=utf-8 \
+        --extensions=php,module,inc,install,test,profile,theme,info,txt \
+        --ignore=*.md,*.info.yml,*.css,./web/modules/uninstall/*,./web/modules/custom/uninstall/* \
+        ./web/modules/custom $BEHAT
+      phpcs_exit=$?
+    fi
+
+    if [ $SKIP_PHPMD -eq 0 ] && command -v phpmd >/dev/null 2>&1; then
+      printf "\e[1;35m* Running PHP Mess Detector for /web/modules/custom ...\e[0m\n"
+
+      phpmd ./web/modules/custom text \
+        ./phpmd.xml --suffixes php,module,inc,install,test,profile,theme,info,txt
+      phpmd_exit=$?
+    fi
+
+    if [ $SKIP_PHPCPD -eq 0 ] && command -v phpcpd >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Copy/Paste Detector for /web/modules/custom ...\e[0m\n"
+
+      phpcpd ./web/modules/custom $BEHAT \
+        --names=*.php,*.module,*.inc,*.install,*.test,*.profile,*.theme,*.info,*.txt \
+        --names-exclude=*.md,*.info.yml,*Tests.php --ansi
+      phpcpd_exit=$?
+    fi
+
+    if [ $FAIL_ON_PHPCS -eq 1 ] && [ $phpcs_exit -gt 0 ]; then
+      exit $phpcs_exit
+    elif [ $FAIL_ON_PHPMD -eq 1 ] && [ $phpmd_exit -gt 0 ]; then
+      exit $phpmd_exit
+    elif [ $FAIL_ON_PHPCPD -eq 1 ] && [ $phpcpd_exit -gt 0 ]; then
+      exit $phpcpd_exit
+    fi
+
+    exit 0
+  )
+
+#
+# HELP
+#
+elif [ "$1" = "--help" ]; then
+  print_help
+  exit $?
+
+#
+# COMMAND NOT FOUND
+#
+else
+  printf "\e[01;35m'$1\` command not found.\e[0m\n\n"
+  print_help
+  exit 1
+fi
