@@ -24,6 +24,7 @@ RUN set -ex; \
   apt-get install -y --no-install-recommends \
     bc \
     gnupg \
+    libicu-dev \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
@@ -43,6 +44,7 @@ RUN set -ex; \
   docker-php-ext-install -j "$(nproc)" \
     bcmath \
     gd \
+    intl \
     opcache \
     pdo_mysql \
     pdo_pgsql \
@@ -117,6 +119,26 @@ RUN set -ex; \
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
+# Prepare symfony reweite conf
+RUN { \
+    echo '<Directory /var/www/public>'; \
+    echo '    RewriteEngine On'; \
+    echo ''; \
+    echo '    RewriteCond %{REQUEST_URI}::$1 ^(/.+)/(.*)::\2$'; \
+    echo '    RewriteRule ^(.*) - [E=BASE:%1]'; \
+    echo ''; \
+    echo '    RewriteCond %{HTTP:Authorization} .'; \
+    echo '    RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]'; \
+    echo ''; \
+    echo '    RewriteCond %{ENV:REDIRECT_STATUS} ^$'; \
+    echo '    RewriteRule ^index\.php(?:/(.*)|$) %{ENV:BASE}/$1 [R=301,L]'; \
+    echo ''; \
+    echo '    RewriteCond %{REQUEST_FILENAME} -f'; \
+    echo '    RewriteRule ^ - [L]'; \
+    echo '    RewriteRule ^ %{ENV:BASE}/index.php [L]'; \
+    echo '</Directory>'; \
+  } > /etc/apache2/conf-available/symfony-rewrite.conf
+
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
 # revalidate_freq is set to 0 to avoid delay in development mode.
@@ -130,7 +152,7 @@ RUN { \
   } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
 # Set PHP settings for Docker
-ENV PHP_MEMORY_LIMIT="258M"
+ENV PHP_MEMORY_LIMIT="256M"
 RUN { \
     echo 'date.timezone="Europe/Zurich"'; \
     echo 'memory_limit=${PHP_MEMORY_LIMIT}'; \

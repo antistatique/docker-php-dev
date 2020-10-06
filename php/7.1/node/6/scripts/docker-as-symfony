@@ -1,0 +1,593 @@
+#!/usr/bin/env bash
+set -e
+
+# Environement variables
+: ${DATABASE_URL:="mysql://root:root@db/symfony"}
+: ${DATABASE_DUMP:="/var/backups/db-reset.sql"}
+: ${SMTP_HOST:="mail:1025"}
+: ${REQUIRED_DIRECTORIES:=""}
+: ${LOCK_TIME:=""}
+: ${TEST_SERVER_PORT:="8888"}
+
+# Script variables
+DATABASE_HOST=$(a=${DATABASE_URL#*@}; echo ${a%/*})
+DATABASE_NAME=${DATABASE_URL##*/}
+DATABASE_USER=$(a=${DATABASE_URL#*//}; echo ${a%:*})
+DATABASE_PASSWORD=$(a=${DATABASE_URL#*//}; b=${a#*:}; echo ${b%@*})
+SYMFONY_IS_INSTALLED=0
+SCRIPT_NAME=$(basename $0)
+
+# Print help
+function print_help() {
+  echo "usage: $SCRIPT_NAME <action> [options]
+
+  * bootstrap
+
+    Install Symfony and dependencies. Require config export, do not bootstrap a new projet.
+
+    --skip-dependencies      # Do not run composer and yarn install
+    --skip-install           # Do not run Drupal install (only if arealdy installed)
+    --skip-db-reset          # Do not reset database using SQL dump (only when --skip-install)
+    --install-only           # Same as --skip-dependencies --skip-styleguide-build
+
+  * setup
+
+    Ensure Symfony is porper setup (parameters.yml, mail settings, ...).
+
+    --with-dependencies      # Run composer and yarn install
+
+  * db-reset
+
+    Reset database using SQL dump made after bootstrap.
+
+    --update-dump            # Update database dump (include updated Drupal config, but not
+                             # default content)
+
+  * db-dump
+
+    Create a database dump that can be used as with db-restore (not with db-reset).
+
+    --file=<path>            # Path to dump file (not required)
+
+  * db-restore
+
+    Restore database from dump created with db-dump.
+
+    --file=<path>            # Path to dump file (not required)
+
+  * apache-server
+
+    Run web server using 'apache'. Reset database if not present.
+
+    --with-db-reset          # Reset database before launch server
+    --cache                  # Do not invalidate opcache (server must be restarted
+                             # reload cache)
+    --help                   # Display apache help
+    -- <...>                 # any apache valid args
+
+  * phpunit
+
+    Run phpunits tests.
+
+    --skip-default-stops     # Do not stop on error and failure (remove --stop-on-error --stop-on-failure)
+    --with-dependencies      # Run composer and yarn install
+    --with-db-reset          # Reset database before launch server
+    --group=<group>          # Only runs tests from the specified group(s)
+    --exclude-group=<group>  # Exclude tests from the specified group(s)
+    --help                   # Display phpunit help
+    -- <...>                 # any phpunit valid args
+
+  * quality-check
+
+  Run code quality tools (phpcs).
+
+    --skip-phpcs             # Do not run phpcs
+    --skip-phpcpd            # Do not run phpcpd
+    --fail-on-phpcs          # Command fail if phpcs fail too
+    --fail-on-phpcpd         # Command fail if phpcpd fail too
+  "
+}
+
+# Setup
+function setup() {
+  return;
+}
+
+# Return TRUE if Drupal is already installed (database is ready)
+function symfony_is_installed() {
+  if [ $SYMFONY_IS_INSTALLED -eq 0 ]; then
+   # TODO: To be impletemed for symfony using migration table
+   # SYMFONY_IS_INSTALLED=$(bin/console doctrine:query:sql "SELECT * FROM users LIMIT 1" >/dev/null 2>&1 && echo 1 || echo 0)
+   SYMFONY_IS_INSTALLED=1
+  fi
+
+  [ $SYMFONY_IS_INSTALLED -eq 1 ]
+}
+
+# Return FALSE if Drupal is not already installed (database is not ready)
+function symfony_not_installed() {
+  ! symfony_is_installed
+}
+
+# Return TRUE if yarn is installed
+function yarn_is_installed() {
+  command -v yarn > /dev/null 2>&1
+}
+
+# Enable fake time
+function lock_time() {
+  if [ ! -z "$LOCK_TIME" ]; then
+    export LD_PRELOAD="/usr/local/lib/faketime/libfaketime.so.1"
+    export FAKETIME="${LOCK_TIME:-$1}"
+  fi
+}
+
+# Disable fake time
+function free_time() {
+  unset LD_PRELOAD
+}
+
+# Install dependencies
+function install_dependencies() {
+  printf "\e[1;35m* Install dependencies.\e[0m\n"
+
+  composer install --prefer-dist --no-progress --no-suggest --no-interaction
+  if yarn_is_installed && [ -f /var/www/package.json ] && [ -f /var/www/yarn.lock ]; then
+    yarn install --no-progress --non-interactive
+  fi
+}
+
+# Reset database with dump made before loading default content on bootstrap.
+function database_reset() {
+  FILE_PATH=${1:-"$DATABASE_DUMP"}
+
+  if [ -f $FILE_PATH ]; then
+    printf "\e[1;35m* Reset database.\e[0m\n"
+    if symfony_not_installed; then
+      printf "\e[1;35m* (maybe forced beceause not installed).\e[0m\n"
+    fi
+  elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
+    printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
+    return 1
+  fi
+
+  # Drop and create database
+  bin/console doctrine:database:drop --no-interaction --quiet --if-exists --force
+  bin/console doctrine:database:create --no-interaction --quiet
+
+  # Load database dump if exists to reset its state, then migrate database
+  if [ -f $FILE_PATH ]; then
+    bin/console doctrine:database:import --no-interaction $FILE_PATH
+  fi
+  bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+  # Set Drupal install env to TRUE
+  DRUPAL_IS_INSTALLED=1
+}
+
+# Dump database
+function database_dump() {
+  FILE_PATH=${1:-"$DATABASE_DUMP"}
+
+  printf "\e[1;35m* Dump database.\e[0m\n"
+
+  mkdir -p $(dirname $FILE_PATH)
+  bin/console doctrine:schema:create --quiet --no-interaction --dump-sql > $FILE_PATH
+}
+
+
+#
+# BOOTSTRAP Symfony
+#
+if [ "$1" = "bootstrap" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=0
+  SKIP_INSTALL=0
+  SKIP_DB_RESET=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-dependencies)
+        SKIP_DEPENDENCIES=1
+        ;;
+      --skip-install)
+        SKIP_INSTALL=1
+        ;;
+      --skip-db-reset)
+        SKIP_DB_RESET=1
+        ;;
+      --install-only|--only-install)
+        SKIP_DEPENDENCIES=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Install Symfony
+  if [ $SKIP_INSTALL -eq 0 ] || (symfony_not_installed && [ ! -f $DATABASE_DUMP ]); then
+    printf "\e[1;35m* Install Symfony from scratch.\e[0m\n"
+    if [ $SKIP_INSTALL -eq 1 ] && symfony_not_installed; then
+      printf "\e[1;35m* (forced beceause not installed).\e[0m\n"
+    fi
+
+    # Create database
+    bin/console doctrine:database:drop --no-interaction --quiet --if-exists --force
+    bin/console doctrine:database:create --no-interaction --quiet
+    bin/console doctrine:schema:create --no-interaction --quiet
+
+    # Save database dump after install
+    database_dump
+
+  # Or reset database?
+  elif [ $SKIP_DB_RESET -eq 0 ]; then
+    printf "\e[1;35m* Skip install Synfony from scratch. But reset database.\e[0m\n"
+
+    # Reset the database
+    database_reset
+
+  else
+    printf "\e[1;35m* Skip install Symfony from scratch.\e[0m\n"
+  fi
+#
+# CREATE PARAMETERS FILE
+#
+elif [ "$1" = "setup" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+#
+# RESET DATABASE
+#
+elif [ "$1" = "db-reset" ]; then
+  shift
+
+  UPDATE_DATABASE_DUMP=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --update-dump)
+        UPDATE_DATABASE_DUMP=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database without default content
+  database_reset
+
+  # Save database dump after reset (including drupal config update)
+  if [ $UPDATE_DATABASE_DUMP -eq 1 ]; then
+    database_dump
+  fi
+
+#
+# DUMP DATABASE
+#
+elif [ "$1" = "db-dump" ]; then
+  shift
+
+  FILE_PATH="/var/backups/db-dump.sql"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --file=*)
+        if [ -d "$(dirname ${1#*=})" ]; then
+          FILE_PATH="${1#*=}"
+        else
+          printf "\e[01;35m'$(dirname ${1#*=})\` is not a directory.\e[0m\n\n"
+          exit 1;
+        fi
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Save database dump
+  database_dump "$FILE_PATH"
+
+#
+# RESTORE DATABASE
+#
+elif [ "$1" = "db-restore" ]; then
+  shift
+
+  FILE_PATH="/var/backups/db-dump.sql"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --file=*)
+        if [ -f "${1#*=}" ]; then
+          FILE_PATH="${1#*=}"
+        else
+          printf "\e[01;35m'${1#*=}\` not found.\e[0m\n\n"
+          exit 1;
+        fi
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database without default content
+  database_reset "$FILE_PATH"
+#
+# RUN TEST SERVER
+#
+elif [ "$1" = "apache-server" ]; then
+  shift
+
+  SKIP_DB_RESET=1
+  TEST_SERVER_CACHE=0
+  TEST_SERVER_ARGS=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-db-reset)
+        SKIP_DB_RESET=0
+        ;;
+      --cache)
+        TEST_SERVER_CACHE=1
+        ;;
+      --help)
+        print_help
+        apache2-foreground -h
+        exit $?
+        ;;
+      --)
+        shift
+        TEST_SERVER_ARGS=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || symfony_not_installed; then
+    database_reset || true
+  fi
+
+  # Disable opache file timestemps check
+  if [ $TEST_SERVER_CACHE -eq 1 ]; then
+    echo 'opcache.validate_timestamps=0' >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+  fi
+
+  # Lock time
+  lock_time
+
+  # Run server
+  printf "\e[1;35m* Launch test server.\e[0m\n"
+  apache2-foreground -c "DocumentRoot $APACHE_DOCUMENT_ROOT" -c "Listen $TEST_SERVER_PORT" -c "SetEnv DOCKER_ENVIRONMENT 1"  ${TEST_SERVER_ARGS[@]}
+
+  # Release time lock
+  free_time
+
+#
+# RUN PHPUNIT TESTS
+#
+elif [ "$1" = "phpunit" ]; then
+  shift
+
+  SKIP_DEPENDENCIES=1
+  SKIP_DB_RESET=1
+  SKIP_DEFAULT_STOP=0
+  PHPUNIT_GROUPS=()
+  PHPUNIT_EXCLUDE_GROUPS=()
+  PHPUNIT_ARGV=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --with-dependencies)
+        SKIP_DEPENDENCIES=0
+        ;;
+      --with-db-reset)
+        SKIP_DB_RESET=0
+        ;;
+      --group=*)
+        PHPUNIT_GROUPS+=("--group ${1#*=}")
+        ;;
+      --exclude-group=*)
+        PHPUNIT_EXCLUDE_GROUPS+=("--exclude-group ${1#*=}")
+        ;;
+      --skip-default-stops)
+        SKIP_DEFAULT_STOP=1
+        ;;
+      --user=*)
+        TEST_USER="${1#*=}"
+        ;;
+      --help)
+        print_help
+        phpunit --help
+        exit $?
+        ;;
+      --)
+        shift
+        PHPUNIT_ARGV=($@)
+        break
+        ;;
+    esac
+    shift
+  done
+
+  # Use default group if not in present in arguements
+  if [ -z "$PHPUNIT_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_GROUP" ]; then
+    PHPUNIT_GROUPS=("--group $PHPUNIT_DEFAULT_GROUP")
+  fi
+  if [ -z "$PHPUNIT_EXCLUDE_GROUPS" ] && [ ! -z "$PHPUNIT_DEFAULT_EXCLUDE_GROUP" ]; then
+    PHPUNIT_EXCLUDE_GROUPS=("--exclude-group $PHPUNIT_DEFAULT_EXCLUDE_GROUP")
+  fi
+
+  if [ $SKIP_DEFAULT_STOP -eq 0 ]; then
+    PHPUNIT_ARGV+=(--stop-on-error)
+    PHPUNIT_ARGV+=(--stop-on-failure)
+  fi
+
+  # Install dependencies
+  if [ $SKIP_DEPENDENCIES -eq 0 ]; then
+    install_dependencies
+  fi
+
+  # Setup settings & Co.
+  setup
+
+  # Reset database
+  if [ $SKIP_DB_RESET -eq 0 ] || symfony_not_installed; then
+    database_reset || true
+  fi
+
+  # Lock time
+  lock_time
+
+  # Run tests
+  (
+    set +e
+
+    # Run tests
+    if [ -z "$TEST_USER" ]; then
+      /var/www/bin/phpunit ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} ${PHPUNIT_ARGV[@]}
+    else
+      sudo -u $TEST_USER -E /var/www/bin/phpunit ${PHPUNIT_GROUPS[@]} ${PHPUNIT_EXCLUDE_GROUPS[@]} ${PHPUNIT_ARGV[@]}
+    fi
+  )
+  phpunit_exit=$?
+
+  # Release time lock
+  free_time
+
+  # exit
+  exit $phpunit_exit
+
+#
+# QUALITY CHECK
+#
+elif [ "$1" = "quality-check" ]; then
+  shift
+
+  SKIP_PHPCS=0
+  SKIP_PHPCPD=0
+  FAIL_ON_PHPCS=0
+  FAIL_ON_PHPCPD=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --skip-phpcs)
+        SKIP_PHPCS=1
+        ;;
+      --skip-phpcpd)
+        SKIP_PHPCPD=1
+        ;;
+      --fail-on-phpcs)
+        FAIL_ON_PHPCS=1
+        ;;
+      --fail-on-phpcpd)
+        FAIL_ON_PHPCPD=1
+        ;;
+      --help)
+        print_help
+        exit $?;
+        ;;
+    esac
+    shift
+  done
+
+  (
+    set +e
+    phpcs_exit=0
+    phpcpd_exit=0
+
+    if [ $SKIP_PHPCS -eq 0 ] && command -v phpcs >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Code Sniffer ...\e[0m\n"
+
+      phpcs --colors --encoding=utf-8
+      phpcs_exit=$?
+    fi
+
+    if [ $SKIP_PHPCPD -eq 0 ] && command -v phpcpd >/dev/null 2>&1; then
+      printf "\e[1;35m* Running Copy/Paste Detector ...\e[0m\n"
+
+      phpcpd ./src
+      phpcpd_exit=$?
+    fi
+
+    if [ $FAIL_ON_PHPCS -eq 1 ] && [ $phpcs_exit -gt 0 ]; then
+      exit $phpcs_exit
+    elif [ $FAIL_ON_PHPCPD -eq 1 ] && [ $phpcpd_exit -gt 0 ]; then
+      exit $phpcpd_exit
+    fi
+
+    exit 0
+  )
+
+#
+# HELP
+#
+elif [ "$1" = "--help" ]; then
+  print_help
+  exit $?
+
+#
+# COMMAND NOT FOUND
+#
+else
+  printf "\e[01;35m'$1\` command not found.\e[0m\n\n"
+  print_help
+  exit 1
+fi
