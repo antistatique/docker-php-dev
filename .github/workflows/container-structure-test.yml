@@ -17,7 +17,7 @@ jobs:
       - name: Build docker images PHP Only
         run: docker build -t antistatique/php-dev:${{ matrix.php_version }} -f ./php/${{ matrix.php_version }}/Dockerfile .
       - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}.yml
+        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}.yaml
 
 
   dockerfile-php-node-test:
@@ -56,4 +56,4 @@ jobs:
       - name: Build docker images PHP-Node
         run: docker build -t antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} -f ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/Dockerfile .
       - name: Run tests PHP-Node
-        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}-node${{ matrix.node_version }}.yml
+        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}-node${{ matrix.node_version }}.yaml
