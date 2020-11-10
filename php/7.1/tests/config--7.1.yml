@@ -3,4 +3,4 @@ commandTests:
   - name: "PHP Version"
     command: "php"
     args: ["-v"]
-    expectedOutput: ["PHP 7.1.33"]
+    expectedOutput: ['^PHP 7\.1\.\d+']

@@ -3,8 +3,8 @@ commandTests:
   - name: "PHP Version"
     command: "php"
     args: ["-v"]
-    expectedOutput: ["PHP 5.6.40"]
+    expectedOutput: ['^PHP 5\.6\.\d+']
   - name: "Node Version"
     command: "node"
     args: ["-v"]
-    expectedOutput: ["v8.17.0"]
+    expectedOutput: ['^v8\.\d+\.\d+']
