@@ -19,77 +19,41 @@ jobs:
       - name: Run tests PHP only
         run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}.yml
 
-  dockerfile-php5_6-node-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node_version: ['8']
-    steps:
-      - name: checkout source
-        uses: actions/checkout@master
-      - name: Install Google Container Structure Test Framework
-        run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
-      - name: Build docker images PHP Only
-        run: docker build -t antistatique/php-dev:5.6-node${{ matrix.node_version }} -f ./php/5.6/node/${{ matrix.node_version }}/Dockerfile .
-      - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:5.6-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/5.6/tests/config--5.6-node${{ matrix.node_version }}.yml
 
-  dockerfile-php7_0-node-test:
+  dockerfile-php-node-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node_version: ['8', '10']
-    steps:
-      - name: checkout source
-        uses: actions/checkout@master
-      - name: Install Google Container Structure Test Framework
-        run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
-      - name: Build docker images PHP Only
-        run: docker build -t antistatique/php-dev:7.0-node${{ matrix.node_version }} -f ./php/7.0/node/${{ matrix.node_version }}/Dockerfile .
-      - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:7.0-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/7.0/tests/config--7.0-node${{ matrix.node_version }}.yml
 
-  dockerfile-php7_1-node-test:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        node_version: ['6', '8', '9', '10', '11', '12']
-    steps:
-      - name: checkout source
-        uses: actions/checkout@master
-      - name: Install Google Container Structure Test Framework
-        run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
-      - name: Build docker images PHP Only
-        run: docker build -t antistatique/php-dev:7.1-node${{ matrix.node_version }} -f ./php/7.1/node/${{ matrix.node_version }}/Dockerfile .
-      - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:7.1-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/7.1/tests/config--7.1-node${{ matrix.node_version }}.yml
+        php_version: ['5.6', '7.0', '7.1', '7.2', '7.3']
+        node_version: ['8', '10', '11', '12']
+        exclude:
+          - php_version: '5.6'
+            node_version: 10
+          - php_version: '5.6'
+            node_version: 11
+          - php_version: '5.6'
+            node_version: 12
+          - php_version: '7.0'
+            node_version: 11
+          - php_version: '7.0'
+            node_version: 12
+          - php_version: '7.3'
+            node_version: 8
+        include:
+          - node_version: 6
+            php_version: '7.1'
+          - node_version: 9
+            php_version: '7.1'
+          - node_version: 9
+            php_version: '7.2'
 
-  dockerfile-php7_2-node-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node_version: ['8', '9', '10', '11', '12']
     steps:
       - name: checkout source
         uses: actions/checkout@master
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
-      - name: Build docker images PHP Only
-        run: docker build -t antistatique/php-dev:7.2-node${{ matrix.node_version }} -f ./php/7.2/node/${{ matrix.node_version }}/Dockerfile .
-      - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:7.2-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/7.2/tests/config--7.2-node${{ matrix.node_version }}.yml
-
-  dockerfile-php7_3-node-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node_version: ['10', '11', '12']
-    steps:
-      - name: checkout source
-        uses: actions/checkout@master
-      - name: Install Google Container Structure Test Framework
-        run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
-      - name: Build docker images PHP Only
-        run: docker build -t antistatique/php-dev:7.3-node${{ matrix.node_version }} -f ./php/7.3/node/${{ matrix.node_version }}/Dockerfile .
-      - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:7.3-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/7.3/tests/config--7.3-node${{ matrix.node_version }}.yml
+      - name: Build docker images PHP-Node
+        run: docker build -t antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} -f ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/Dockerfile .
+      - name: Run tests PHP-Node
+        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} --config ./php/tests/baseMetadataTests.yaml --config ./php/tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}-node${{ matrix.node_version }}.yml
