@@ -99,7 +99,7 @@ function test {
     container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/tests/baseFileExistenceTests.yaml
 
     # Image specific structure testing.
-    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/tests/config--${TAG}.yml
+    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/tests/config--${TAG}.yaml
   )
 }
 
