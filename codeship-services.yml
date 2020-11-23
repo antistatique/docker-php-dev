@@ -90,6 +90,14 @@
   image_name: antistatique/php-dev
   build: ./php/7.4
   cached: true
+7.4-node10:
+  image_name: antistatique/php-dev
+  build: ./php/7.4/node/10
+  cached: true
+7.4-node11:
+  image_name: antistatique/php-dev
+  build: ./php/7.4/node/11
+  cached: true
 7.4-node12:
   image_name: antistatique/php-dev
   build: ./php/7.4/node/12
