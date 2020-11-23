@@ -27,11 +27,19 @@ RUN set -ex; \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
+    libwebp-dev \
     libzip-dev \
   ; \
   \
   # install the PHP extensions we need
-  docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
+  # GD configuration changed in PHP >7.4. See: https://github.com/docker-library/php/pull/910#issuecomment-559383597
+  # test if $PHP_VERSION > 7.4 (source: https://stackoverflow.com/a/24067243)
+  if [ "$(printf '%s\n' $PHP_VERSION 7.4 | sort -V | head -n 1)" != "$PHP_VERSION" ]; then \
+    docker-php-ext-configure gd --with-jpeg --with-webp; \
+  else \
+    docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr --with-webp-dir=/usr; \
+  fi; \
+  \
   docker-php-ext-install -j "$(nproc)" \
     bcmath \
     gd \

@@ -17,7 +17,7 @@ set -e
 : ${REQUIRED_DIRECTORIES:="/var/www/log/behat"}
 : ${LOG_DIR:="/var/www/log"}
 : ${DRUPAL_CONFIG_SET:=""}
-
+: ${DRUPAL_VERSION:=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)}
 : ${BEHAT_PROFILE:="default"}
 : ${PHPUNIT_DEFAULT_GROUP:=""}
 : ${PHPUNIT_DEFAULT_EXCLUDE_GROUP:=""}
@@ -188,11 +188,8 @@ function setup() {
   fi
   chmod 664 --quiet ./web/sites/default/settings.php || true
 
-  # Get the Drupal version.
-   DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
-
   # Since Drupal 8.8.x, $config_directories has been deprecated. @see https://www.drupal.org/node/3018145
-  if [ "${DRUPAL_VERSION:2:1}" -lt "8" ]
+  if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "8" ]
   then
     # Fix config directory in settings file
     sed -ri -e "s@^\\\$config_directories.*\[.*\].*;@\\\$config_directories\['sync'\] = '$RELATIVE_SITE_CONFIG_DIR';@g" ./web/sites/default/settings.php
@@ -254,8 +251,24 @@ function setup() {
     find "$PRIVATE_FILES" -type d -exec chmod +xs {} \;
   fi
 
+  # Include environement and local settings if they exists
+  if ! grep -Eq "\[INCLUDE\] Environment specific settings files." ./web/sites/default/settings.php; then
+    cat <<EOT >> ./web/sites/default/settings.php
+// [INCLUDE] Environment specific settings files.
+if (getenv('APP_ENV')) {
+  if (file_exists(__DIR__ . '/' . getenv('APP_ENV') . '.settings.php')) {
+    include __DIR__ . '/' . getenv('APP_ENV') . '.settings.php';
+  }
+}
+// Last: this servers specific settings files.
+if (file_exists(__DIR__ . '/settings.local.php')) {
+  include __DIR__ . '/settings.local.php';
+}
+EOT
+  fi
+
   # Create required directories
-  printf "\e[1;35m* Setup required directoris.\e[0m\n"
+  printf "\e[1;35m* Setup required directories.\e[0m\n"
 
   echo mkdir $LOG_DIR
   mkdir -p $LOG_DIR
@@ -283,7 +296,7 @@ function setup() {
 # Return TRUE if Drupal is already installed (database is ready)
 function drupal_is_installed() {
   if [ $DRUPAL_IS_INSTALLED -eq 0 ]; then
-   DRUPAL_IS_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1" >/dev/null 2>&1 && echo 1 || echo 0)
+    DRUPAL_IS_INSTALLED=$(drush sql-query "SELECT * FROM users_field_data where uid = 1" >/dev/null 2>&1 && echo 1 || echo 0)
   fi
 
   [ $DRUPAL_IS_INSTALLED -eq 1 ]
@@ -321,7 +334,7 @@ function database_reset() {
   if [ -f $FILE_PATH ]; then
     printf "\e[1;35m* Reset database.\e[0m\n"
     if drupal_not_installed; then
-      printf "\e[1;35m* (maybe forced beceause not installed).\e[0m\n"
+      printf "\e[1;35m* (Maybe forced because it is not installed).\e[0m\n"
     fi
   elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
@@ -396,11 +409,8 @@ function import_drupal_config() {
   printf "\e[1;35m* Update database and entities.\e[0m\n"
   drush updatedb -y
 
-  # Get the Drupal version.
-   DRUPAL_VERSION=$(composer show 'drupal/core' | grep 'versions' | grep -o -E '\*\ .+' | cut -d' ' -f2 | cut -d',' -f1;)
-
   # Since Drupal 8.7.x, entity:update has been deprecated.
-  if [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
+  if [ "${DRUPAL_VERSION:0:1}" -lt "9" ] && [ "${DRUPAL_VERSION:2:1}" -lt "7" ]
   then
     drush entity:update -y
   fi
@@ -554,7 +564,7 @@ if [ "$1" = "bootstrap" ]; then
       drush si $SITE_INSTALL_PROFILE --db-url=$DATABASE_URL --site-name="$SITE_NAME" --account-name=admin --account-pass=admin --account-mail="dev@antistatique.net" -y
 
       # Remove unwanted content from database that break config import.
-      drush -q ev '\Drupal::entityManager()->getStorage("shortcut_set")->load("default")->delete();' >/dev/null 2>&1 || true
+      drush -q ev '\Drupal::entityTypeManager()->getStorage("shortcut_set")->load("default")->delete();' >/dev/null 3>&1 || true
 
       # Fix Drupal UUID in database config
       drush config-set system.site uuid "$SITE_UUID" -y
