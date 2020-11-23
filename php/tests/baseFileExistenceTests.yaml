@@ -1,0 +1,38 @@
+schemaVersion: '2.0.0'
+fileExistenceTests:
+  - name: 'Composer'
+    path: '/usr/local/bin/composer'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
+  - name: 'Docker Antistatique Wait'
+    path: '/usr/local/bin/docker-as-wait'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
+  - name: 'Docker Antistatique Entrypoint'
+    path: '/usr/local/bin/docker-as-entrypoint'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
+  - name: 'Docker Antistatique Artifacts'
+    path: '/usr/local/bin/docker-as-artifacts'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
+  - name: 'Docker Antistatique Cleanup'
+    path: '/usr/local/bin/docker-as-cleanup'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
+  - name: 'Docker Antistatique Drupal'
+    path: '/usr/local/bin/docker-as-drupal'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
