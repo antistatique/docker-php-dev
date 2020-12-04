@@ -98,6 +98,9 @@ function test {
     # Ensure base file existences.
     container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/tests/baseFileExistenceTests.yaml
 
+    # Ensure base commands.
+    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/tests/baseCommandTests.yaml
+
     # Image specific structure testing.
     container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/tests/config--${TAG}.yaml
   )
