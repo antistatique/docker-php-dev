@@ -7,7 +7,7 @@ jobs:
 
     strategy:
       matrix:
-        php_version: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4']
+        php_version: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0']
 
     steps:
       - name: checkout source
@@ -25,7 +25,7 @@ jobs:
 
     strategy:
       matrix:
-        php_version: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4']
+        php_version: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0']
         node_version: ['8', '10', '11', '12']
         exclude:
           - php_version: '5.6'
@@ -42,6 +42,12 @@ jobs:
             node_version: 8
           - php_version: '7.4'
             node_version: 8
+          - php_version: '8.0'
+            node_version: 8
+          - php_version: '8.0'
+            node_version: 10
+          - php_version: '8.0'
+            node_version: 11
         include:
           - node_version: 6
             php_version: '7.1'
@@ -49,6 +55,8 @@ jobs:
             php_version: '7.1'
           - node_version: 9
             php_version: '7.2'
+          - node_version: 14
+            php_version: '8.0'
 
     steps:
       - name: checkout source

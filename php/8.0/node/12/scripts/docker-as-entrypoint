@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -e
+
+# Files & directories permissions created at running time
+umask 0002
+
+# Run command
+exec "$@"

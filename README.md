@@ -44,6 +44,9 @@ The version for PHP and Node can be selected in image tag, follwing versions are
   * Node 10
   * Node 11
   * Node 12
+ * PHP 8.0
+  * Node 12
+  * Node 14
 
 ### Drupal setup
 
