@@ -30,6 +30,12 @@ fileExistenceTests:
     permissions: '-rwxr-xr-x'
     uid: 0
     gid: 0
+  - name: 'Docker Antistatique Symfony'
+    path: '/usr/local/bin/docker-as-symfony'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
   - name: 'Docker Antistatique Drupal'
     path: '/usr/local/bin/docker-as-drupal'
     shouldExist: true
