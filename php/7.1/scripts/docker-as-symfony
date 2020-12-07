@@ -93,7 +93,7 @@ function setup() {
   return;
 }
 
-# Return TRUE if Drupal is already installed (database is ready)
+# Return TRUE if Symfony is already installed (database is ready)
 function symfony_is_installed() {
   if [ $SYMFONY_IS_INSTALLED -eq 0 ]; then
    # TODO: To be impletemed for symfony using migration table
@@ -104,7 +104,7 @@ function symfony_is_installed() {
   [ $SYMFONY_IS_INSTALLED -eq 1 ]
 }
 
-# Return FALSE if Drupal is not already installed (database is not ready)
+# Return FALSE if Symfony is not already installed (database is not ready)
 function symfony_not_installed() {
   ! symfony_is_installed
 }
@@ -144,7 +144,7 @@ function database_reset() {
   if [ -f $FILE_PATH ]; then
     printf "\e[1;35m* Reset database.\e[0m\n"
     if symfony_not_installed; then
-      printf "\e[1;35m* (maybe forced beceause not installed).\e[0m\n"
+      printf "\e[1;35m* (maybe forced because symfony is not installed).\e[0m\n"
     fi
   elif [ "$FILE_PATH" != "$DATABASE_DUMP" ]; then
     printf "\e[01;31No database dump found, run '$SCRIPT_NAME db-dump' first.\e[0m\n"
@@ -161,8 +161,8 @@ function database_reset() {
   fi
   bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-  # Set Drupal install env to TRUE
-  DRUPAL_IS_INSTALLED=1
+  # Set Symfony install env to TRUE
+  SYMFONY_IS_INSTALLED=1
 }
 
 # Dump database
@@ -297,7 +297,7 @@ elif [ "$1" = "db-reset" ]; then
   # Reset database without default content
   database_reset
 
-  # Save database dump after reset (including drupal config update)
+  # Save database dump after reset
   if [ $UPDATE_DATABASE_DUMP -eq 1 ]; then
     database_dump
   fi
