@@ -201,3 +201,27 @@
           image_name: antistatique/php-dev
           image_tag: 7.4-node12
           encrypted_dockercfg_path: docker.cfg.enc
+    - name: php 8.0
+      type: serial
+      steps:
+        - name: only
+          type: push
+          service: 8.0
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 8.0
+          encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 12
+          type: push
+          service: 8.0-node12
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 8.0-node12
+          encrypted_dockercfg_path: docker.cfg.enc
+        - name: node 14
+          type: push
+          service: 8.0-node14
+          registry: https://index.docker.io/v1/
+          image_name: antistatique/php-dev
+          image_tag: 8.0-node14
+          encrypted_dockercfg_path: docker.cfg.enc

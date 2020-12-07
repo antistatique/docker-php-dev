@@ -102,3 +102,15 @@
   image_name: antistatique/php-dev
   build: ./php/7.4/node/12
   cached: true
+8.0:
+  image_name: antistatique/php-dev
+  build: ./php/8.0
+  cached: true
+8.0-node12:
+  image_name: antistatique/php-dev
+  build: ./php/8.0/node/12
+  cached: true
+8.0-node14:
+  image_name: antistatique/php-dev
+  build: ./php/8.0/node/14
+  cached: true
