@@ -28,7 +28,7 @@ function print_help() {
     --skip-dependencies      # Do not run composer and yarn install
     --skip-install           # Do not run Drupal install (only if arealdy installed)
     --skip-db-reset          # Do not reset database using SQL dump (only when --skip-install)
-    --install-only           # Same as --skip-dependencies --skip-styleguide-build
+    --install-only           # Same as --skip-dependencies
 
   * db-reset
 
