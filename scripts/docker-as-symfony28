@@ -180,8 +180,8 @@ function database_reset() {
   mysql --user="$DATABASE_USER" --password="$DATABASE_PASSWORD" --host="$DATABASE_HOST" $DATABASE_NAME < $FILE_PATH
   app/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-  # Set Drupal install env to TRUE
-  DRUPAL_IS_INSTALLED=1
+  # Set Symfony install env to TRUE
+  SYMFONY_IS_INSTALLED=1
 }
 
 # Dump database
