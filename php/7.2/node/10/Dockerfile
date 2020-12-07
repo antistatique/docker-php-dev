@@ -4,6 +4,9 @@ ENV APACHE_DOCUMENT_ROOT /var/www/web
 ENV NODE_MAJOR_VERSION 10
 
 ENV PATH="/var/www/node_modules/.bin:/var/www/vendor/bin:/var/www/bin:${PATH}"
+ENV ARTIFACTS_DEST="/usr/bin/artifacts"
+
+ENV COMPOSER_MEMORY_LIMIT=-1
 
 # Install dependencies
 RUN set -ex; \
@@ -19,15 +22,24 @@ RUN set -ex; \
   # install the installation dependencies we need
   apt-get update; \
   apt-get install -y --no-install-recommends \
+    bc \
     gnupg \
     libjpeg-dev \
     libpng-dev \
     libpq-dev \
+    libwebp-dev \
     libzip-dev \
   ; \
   \
   # install the PHP extensions we need
-  docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
+  # GD configuration changed in PHP >7.4. See: https://github.com/docker-library/php/pull/910#issuecomment-559383597
+  # test if $PHP_VERSION > 7.4 (source: https://stackoverflow.com/a/24067243)
+  if [ "$(printf '%s\n' $PHP_VERSION 7.4 | sort -V | head -n 1)" != "$PHP_VERSION" ]; then \
+    docker-php-ext-configure gd --with-jpeg --with-webp; \
+  else \
+    docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr --with-webp-dir=/usr; \
+  fi; \
+  \
   docker-php-ext-install -j "$(nproc)" \
     bcmath \
     gd \
@@ -48,27 +60,56 @@ RUN set -ex; \
     | sort -u \
     | xargs -rt apt-mark manual; \
   \
-  # install running dependencies
-  curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - ; \
-  echo "deb http://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list; \
+  # add node related repositories
+  if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
+    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - ; \
+    echo "deb http://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list; \
+    \
+    curl -sL https://deb.nodesource.com/setup_${NODE_MAJOR_VERSION}.x | bash - ; \
+  fi; \
   \
-  curl -sL https://deb.nodesource.com/setup_${NODE_MAJOR_VERSION}.x | bash - ; \
-  \
+  # update list of packages
   apt-get update; \
+  \
+  # install php running dependencies
   apt-get install -y --no-install-recommends \
+    dnsutils \
     git \
     imagemagick \
+    jq \
     libpng-dev \
-    mysql-client \
+    mariadb-client \
     netcat \
-    nodejs \
-    python2.7 \
+    sudo \
     unzip \
     vim \
     webp \
-    yarn \
   ; \
   \
+  # install node related dependencies
+  if [ "$NODE_MAJOR_VERSION" != "false" ]; then \
+    apt-get install -y --no-install-recommends \
+      nodejs=$NODE_MAJOR_VERSION.* \
+      python2.7 \
+      yarn \
+    ; \
+    \
+    npm config set --global python python2.7; \
+  fi; \
+  \
+  # Install faketime
+  # See https://github.com/wolfcw/libfaketime
+  git clone https://github.com/wolfcw/libfaketime.git /usr/src/faketime; \
+  ( \
+    cd /usr/src/faketime; \
+    make install; \
+  ); \
+  rm -rf /usr/src/faketime; \
+  \
+  # Install artifacts
+  curl -fsSL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash; \
+  \
+  # cleanup
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
   rm -rf /var/lib/apt/lists/*
 
@@ -88,11 +129,12 @@ RUN { \
     echo 'opcache.enable_cli=1'; \
   } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
-# setup npm
-RUN npm config set --global python python2.7
-
-# setup cron
-RUN touch /var/log/cron.log
+# Set PHP settings for Docker
+ENV PHP_MEMORY_LIMIT="258M"
+RUN { \
+    echo 'date.timezone="Europe/Zurich"'; \
+    echo 'memory_limit=${PHP_MEMORY_LIMIT}'; \
+  } > /usr/local/etc/php/conf.d/docker.ini
 
 # install Composer.
 RUN curl -sS https://getcomposer.org/installer | php && \
