@@ -2,9 +2,9 @@
 set -e
 
 # Environement variables
-: ${DATABASE_URL:="mysql://root:root@db/drupal"}
+: ${DATABASE_URL:="mysql://wp:wp@db/wp_development"}
 
-: ${TEST_SERVER_PORT:="8888"}
+: ${TEST_SERVER_PORT:="8080"}
 
 # Script variables
 SCRIPT_NAME=$(basename $0)
@@ -13,24 +13,66 @@ SCRIPT_NAME=$(basename $0)
 function print_help() {
   echo "usage: $SCRIPT_NAME <action> [options]
 
+  * bootstrap
+
+    Install wordpress.
+
   * apache-server
 
-    Run web server using 'apache'. Reset database if not present.
+    Run web server using 'apache'.
 
-    --with-db-reset          # Reset database before launch server
-    --with-default-content   # Load default content (force reset database)
     --cache                  # Do not invalidate opcache (server must be restarted
-                             # reload cache)
+                             # to reload cache)
     --help                   # Display apache help
     -- <...>                 # any apache valid args
   "
 }
 
+#
+# BOOTSTRAP
+#
+if [ "$1" = "bootstrap" ]; then
+  shift
+
+  CMD=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --)
+        shift
+        CMD=("$@")
+        break
+        ;;
+    esac
+    shift
+  done
+
+  printf "\e[1;35m* Bootstrap WordPress.\e[0m\n"
+
+  if wp core is-installed --allow-root
+  then
+    echo "WordPress is already installed, exiting."
+    if [ ! -z "$CMD" ]; then
+      exec "${CMD[@]}"
+    fi
+    exit
+  fi
+
+  wp core install --allow-root \
+    --url="http://localhost:8080" \
+    --title="Wordpress" \
+    --admin_user="admin" \
+    --admin_password="admin" \
+    --admin_email="dev@antistatique.net" \
+    --skip-email
+
+  wp term update category 1 --allow-root --name="Sample Category"
+  wp post delete 1 2 --allow-root
 
 #
 # RUN TEST SERVER
 #
-if [ "$1" = "apache-server" ]; then
+elif [ "$1" = "apache-server" ]; then
   shift
 
   TEST_SERVER_CACHE=0
@@ -58,9 +100,26 @@ if [ "$1" = "apache-server" ]; then
     shift
   done
 
+  echo '
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.php$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.php [L]
+</IfModule>
+  ' > /var/www/web/.htaccess
+
   # Disable opache file timestemps check
   if [ $TEST_SERVER_CACHE -eq 1 ]; then
     echo 'opcache.validate_timestamps=0' >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+  fi
+
+  # Update Wordpress setup
+  if wp core is-installed --allow-root
+  then
+    wp plugin activate --allow-root --all
   fi
 
   # Run server
