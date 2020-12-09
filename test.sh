@@ -93,13 +93,13 @@ function test {
     fi
 
     # Ensure base metadata.
-    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/tests/baseMetadataTests.yaml
+    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/tests/baseMetadataTests.yaml
 
     # Ensure base file existences.
-    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/tests/baseFileExistenceTests.yaml
+    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/tests/baseFileExistenceTests.yaml
 
     # Ensure base commands.
-    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/tests/baseCommandTests.yaml
+    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/tests/baseCommandTests.yaml
 
     # Image specific structure testing.
     container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/tests/config--${TAG}.yaml
