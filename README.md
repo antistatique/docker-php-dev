@@ -54,6 +54,7 @@ Following environement variable are available:
 
 ```bash
 APACHE_DOCUMENT_ROOT          # Apache Document Root (default to "/var/www/web")
+PHP_MEMORY_LIMIT              # Set PHP mermory limit (default to "256M")
 
 APP_ENV                       # Eq: development, test, production. This environment variable
                               # is used to load specific settings per environment.
