@@ -102,7 +102,11 @@ function test {
     container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/tests/baseCommandTests.yaml
 
     # Image specific structure testing.
-    container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/tests/config--${TAG}.yaml
+    if [ -z "$2" ]; then
+      container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/tests/config--${TAG}.yaml
+    else
+      container-structure-test test --image antistatique/php-dev:${TAG} --config ${scriptDir}/php/$1/node/$2/tests/config--${TAG}.yaml
+    fi
   )
 }
 
