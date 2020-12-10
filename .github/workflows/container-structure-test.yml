@@ -1,5 +1,7 @@
 name: "Test Dockerfile structure"
-on: pull_request
+on:
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
 
 jobs:
   dockerfile-php-only-test:
@@ -12,12 +14,29 @@ jobs:
     steps:
       - name: checkout source
         uses: actions/checkout@master
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build docker image for PHP ${{ matrix.php_version }}
         run: ./tools.sh --no-cache --build=${{ matrix.php_version }}
       - name: Run tests on PHP ${{ matrix.php_version }} image
         run: ./tools.sh --no-cache --test=${{ matrix.php_version }}
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v2
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+        with:
+          context: ./php/${{ matrix.php_version }}
+          file: ./php/${{ matrix.php_version }}/Dockerfile
+          tags: antistatique/php-dev:${{ matrix.php_version }}
+          push: true
 
   dockerfile-php-node-test:
     runs-on: ubuntu-latest
@@ -52,6 +71,10 @@ jobs:
     steps:
       - name: checkout source
         uses: actions/checkout@master
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
       - name: Login to DockerHub
@@ -63,3 +86,11 @@ jobs:
         run: ./tools.sh --no-cache --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Run tests on PHP ${{ matrix.php_version }} and Node ${{ matrix.node_version }} image
         run: ./tools.sh --no-cache --test=${{ matrix.php_version }}-node${{ matrix.node_version }}
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v2
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+        with:
+          context: ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}
+          file: ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/Dockerfile
+          tags: antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }}
+          push: true
