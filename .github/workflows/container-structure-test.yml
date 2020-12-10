@@ -25,8 +25,16 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Generate docker image config files for PHP ${{ matrix.php_version }}
+        run: ./tools.sh --generate=${{ matrix.php_version }}
       - name: Build docker image for PHP ${{ matrix.php_version }}
-        run: ./tools.sh --no-cache --build=${{ matrix.php_version }}
+        uses: docker/build-push-action@v2
+        with:
+          context: ./php/${{ matrix.php_version }}
+          file: ./php/${{ matrix.php_version }}/Dockerfile
+          tags: antistatique/php-dev:${{ matrix.php_version }}
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          load: true
       - name: Run tests on PHP ${{ matrix.php_version }} image
         run: ./tools.sh --no-cache --test=${{ matrix.php_version }}
       - name: Push to Docker Hub
@@ -36,6 +44,7 @@ jobs:
           context: ./php/${{ matrix.php_version }}
           file: ./php/${{ matrix.php_version }}/Dockerfile
           tags: antistatique/php-dev:${{ matrix.php_version }}
+          cache-from: type=local,src=/tmp/.buildx-cache
           push: true
 
   dockerfile-php-node-test:
@@ -82,8 +91,16 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Generate docker image config files for PHP ${{ matrix.php_version }} and Node ${{ matrix.node_version }}
+        run: ./tools.sh --generate=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Build docker image for PHP ${{ matrix.php_version }} and Node ${{ matrix.node_version }}
-        run: ./tools.sh --no-cache --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
+        uses: docker/build-push-action@v2
+        with:
+          context: ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}
+          file: ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/Dockerfile
+          tags: antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }}
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          load: true
       - name: Run tests on PHP ${{ matrix.php_version }} and Node ${{ matrix.node_version }} image
         run: ./tools.sh --no-cache --test=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Push to Docker Hub
@@ -93,4 +110,5 @@ jobs:
           context: ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}
           file: ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/Dockerfile
           tags: antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }}
+          cache-from: type=local,src=/tmp/.buildx-cache
           push: true
