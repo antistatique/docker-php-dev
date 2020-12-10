@@ -15,9 +15,9 @@ jobs:
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
       - name: Build docker images PHP Only
-        run: ./tools.sh --build=${{ matrix.php_version }}
+        run: ./tools.sh --no-cache --build=${{ matrix.php_version }}
       - name: Run tests PHP only
-        run: ./tools.sh --test=${{ matrix.php_version }}
+        run: ./tools.sh --no-cache --test=${{ matrix.php_version }}
 
 
   dockerfile-php-node-test:
@@ -56,6 +56,6 @@ jobs:
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
       - name: Build docker images PHP-Node
-        run: ./tools.sh --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
+        run: ./tools.sh --no-cache --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Run tests PHP-Node
-        run: ./tools.sh --test=${{ matrix.php_version }}-node${{ matrix.node_version }}
+        run: ./tools.sh --no-cache --test=${{ matrix.php_version }}-node${{ matrix.node_version }}
