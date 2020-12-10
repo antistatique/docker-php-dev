@@ -17,7 +17,7 @@ jobs:
       - name: Build docker images PHP Only
         run: ./tools.sh --build=${{ matrix.php_version }}
       - name: Run tests PHP only
-        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }} --config ./tests/baseMetadataTests.yaml --config ./tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}.yaml
+        run: ./tools.sh --test=${{ matrix.php_version }}
 
 
   dockerfile-php-node-test:
@@ -58,4 +58,4 @@ jobs:
       - name: Build docker images PHP-Node
         run: ./tools.sh --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Run tests PHP-Node
-        run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} --config ./tests/baseMetadataTests.yaml --config ./tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/tests/config--${{ matrix.php_version }}-node${{ matrix.node_version }}.yaml
+        run: ./tools.sh --test=${{ matrix.php_version }}-node${{ matrix.node_version }}
