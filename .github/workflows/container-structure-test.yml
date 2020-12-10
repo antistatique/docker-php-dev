@@ -15,7 +15,7 @@ jobs:
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
       - name: Build docker images PHP Only
-        run: ./update.sh --build=${{ matrix.php_version }}
+        run: ./tools.sh --build=${{ matrix.php_version }}
       - name: Run tests PHP only
         run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }} --config ./tests/baseMetadataTests.yaml --config ./tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/tests/config--${{ matrix.php_version }}.yaml
 
@@ -56,6 +56,6 @@ jobs:
       - name: Install Google Container Structure Test Framework
         run: curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 && chmod +x container-structure-test-linux-amd64 && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
       - name: Build docker images PHP-Node
-        run: ./update.sh --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
+        run: ./tools.sh --build=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Run tests PHP-Node
         run: container-structure-test test --image antistatique/php-dev:${{ matrix.php_version }}-node${{ matrix.node_version }} --config ./tests/baseMetadataTests.yaml --config ./tests/baseFileExistenceTests.yaml --config ./php/${{ matrix.php_version }}/node/${{ matrix.node_version }}/tests/config--${{ matrix.php_version }}-node${{ matrix.node_version }}.yaml
