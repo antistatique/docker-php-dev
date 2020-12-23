@@ -1,6 +1,6 @@
 # Docker image for PHP+Node development
 
-[![Codeship Status](https://app.codeship.com/projects/c610aae0-33a1-0137-17d1-7aa33077477e/status?branch=dev)](https://app.codeship.com/projects/332415)
+![GH Workflow Status](https://github.com/antistatique/docker-php-dev/workflows/.github/workflows/ci.yml/badge.svg)
 
 ## Setup
 
