@@ -490,21 +490,18 @@ docker-compose exec test docker-as-drupal quality-check [options]
 ```
 
 ## Work on the docker image
-After updating `/scripts/*` don't forget to update all PHP images by running the following command:
-```bash
-./update.sh
-```
+A [Github Action Workflow](.github/workflows/ci.yml) is responsible to test, build and publish docker image.
 
 You can also locally build all images or a specific one:
 
 ```bash
-./update.sh --build=<7.2-node9|all|latest>
+./tools.sh --build=<7.2-node9|all|latest>
 ```
 
-And if you have the credentials (run `docker login`), you can manually publish an image:
+Run tests (you will need first to install [container-structure-test](https://github.com/GoogleContainerTools/container-structure-test)):
 
 ```bash
-./update.sh --publish=<7.2-node9|all|latest>
+./tools.sh --test=<7.2-node9|all|latest>
 ```
 
-But CodeShip take care of this on the default branch.
+But all of this is automated with Github.
