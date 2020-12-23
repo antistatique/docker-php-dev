@@ -1,6 +1,6 @@
 # Docker image for PHP+Node development
 
-[![Codeship Status](https://app.codeship.com/projects/c610aae0-33a1-0137-17d1-7aa33077477e/status?branch=dev)](https://app.codeship.com/projects/332415)
+![GH Workflow Status](https://github.com/antistatique/docker-php-dev/workflows/.github/workflows/ci.yml/badge.svg)
 
 ## Setup
 
@@ -57,6 +57,7 @@ Following environement variable are available:
 
 ```bash
 APACHE_DOCUMENT_ROOT          # Apache Document Root (default to "/var/www/web")
+PHP_MEMORY_LIMIT              # Set PHP mermory limit (default to "256M")
 
 APP_ENV                       # Eq: development, test, production. This environment variable
                               # is used to load specific settings per environment.
@@ -492,21 +493,18 @@ docker-compose exec test docker-as-drupal quality-check [options]
 ```
 
 ## Work on the docker image
-After updating `/scripts/*` don't forget to update all PHP images by running the following command:
-```bash
-./update.sh
-```
+A [Github Action Workflow](.github/workflows/ci.yml) is responsible to test, build and publish docker image.
 
 You can also locally build all images or a specific one:
 
 ```bash
-./update.sh --build=<7.2-node9|all|latest>
+./tools.sh --build=<7.2-node9|all|latest>
 ```
 
-And if you have the credentials (run `docker login`), you can manually publish an image:
+Run tests (you will need first to install [container-structure-test](https://github.com/GoogleContainerTools/container-structure-test)):
 
 ```bash
-./update.sh --publish=<7.2-node9|all|latest>
+./tools.sh --test=<7.2-node9|all|latest>
 ```
 
-But CodeShip take care of this on the default branch.
+But all of this is automated with Github.
