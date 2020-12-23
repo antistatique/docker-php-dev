@@ -35,6 +35,7 @@ jobs:
           tags: antistatique/php-dev:${{ matrix.php_version }}
           cache-to: type=local,dest=/tmp/.buildx-cache
           load: true
+          push: false
       - name: Run tests on PHP ${{ matrix.php_version }} image
         run: ./tools.sh --no-cache --test=${{ matrix.php_version }}
       - name: Push to Docker Hub
