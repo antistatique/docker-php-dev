@@ -1,4 +1,4 @@
-name: "Test Dockerfile structure"
+name: "Test, build and publish Docker images"
 on:
   pull_request:
     types: [opened, synchronize, closed, reopened]
