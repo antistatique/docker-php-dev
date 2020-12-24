@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-set -e
-
-cd /var/www
-git clean -dXff
