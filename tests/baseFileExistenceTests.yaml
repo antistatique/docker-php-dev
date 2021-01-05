@@ -42,3 +42,9 @@ fileExistenceTests:
     permissions: '-rwxr-xr-x'
     uid: 0
     gid: 0
+  - name: 'Docker Antistatique WordPress'
+    path: '/usr/local/bin/docker-as-wordpress'
+    shouldExist: true
+    permissions: '-rwxr-xr-x'
+    uid: 0
+    gid: 0
