@@ -16,6 +16,7 @@ RUN set -ex; \
   if command -v a2enmod; then \
     a2enmod rewrite; \
     a2enmod headers; \
+    a2enmod expires; \
   fi; \
   \
   savedAptMark="$(apt-mark showmanual)"; \
