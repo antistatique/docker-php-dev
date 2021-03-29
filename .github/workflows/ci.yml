@@ -1,11 +1,7 @@
 name: "Test, build and publish Docker images"
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+    types: [opened, synchronize, closed, reopened]
 
 jobs:
   dockerfile-php-only-test:
@@ -44,7 +40,7 @@ jobs:
         run: ./tools.sh --no-cache --test=${{ matrix.php_version }}
       - name: Push to Docker Hub
         uses: docker/build-push-action@v2
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
         with:
           context: ./php/${{ matrix.php_version }}
           file: ./php/${{ matrix.php_version }}/Dockerfile
