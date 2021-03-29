@@ -1,7 +1,11 @@
 name: "Test, build and publish Docker images"
 on:
   pull_request:
-    types: [opened, synchronize, closed, reopened]
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   dockerfile-php-only-test:
