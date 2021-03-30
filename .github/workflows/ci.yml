@@ -38,10 +38,10 @@ jobs:
           load: true
           push: false
       - name: Run tests on PHP ${{ matrix.php_version }} image
-        run: ./tools.sh --no-cache --test=${{ matrix.php_version }}
+        run: ./tools.sh --test-cached=${{ matrix.php_version }}
       - name: Push to Docker Hub
         uses: docker/build-push-action@v2
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+        if:  (github.event_name == 'workflow_dispatch' && github.ref == 'main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
         with:
           context: ./php/${{ matrix.php_version }}
           file: ./php/${{ matrix.php_version }}/Dockerfile
