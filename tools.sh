@@ -74,15 +74,6 @@ function tag {
   fi
 }
 
-function pull {
-  (
-    set +e
-    TAG=$(tag $1 $2)
-
-    docker pull antistatique/php-dev:$TAG || true
-  )
-}
-
 function build {
   (
     set -e
@@ -171,9 +162,6 @@ function process {
 
   # build docker imge if required
   if [ "$VERSION_TO_BUILD" = "all" ] || [ "$VERSION_TO_BUILD" = "$tag" ]; then
-    if [ "$USE_CACHE" -gt 0 ]; then
-      pull $phpVersion $nodeVersion
-    fi
     build $phpVersion $nodeVersion
   fi
 
