@@ -108,7 +108,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
           load: true
       - name: Run tests on PHP ${{ matrix.php_version }} and Node ${{ matrix.node_version }} image
-        run: ./tools.sh --test=${{ matrix.php_version }}-node${{ matrix.node_version }}
+        run: ./tools.sh --test-cached=${{ matrix.php_version }}-node${{ matrix.node_version }}
       - name: Push to Docker Hub
         uses: docker/build-push-action@v2
         if:  (github.event_name == 'workflow_dispatch' && github.ref == 'main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
