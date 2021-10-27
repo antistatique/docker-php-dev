@@ -504,6 +504,7 @@ if [ "$1" = "bootstrap" ]; then
   SKIP_INSTALL=0
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=1
+  SKIP_SETUP=0
   SKIP_ELASTICSEARCH=1
   SKIP_STYLEGUIDE=0
 
@@ -520,6 +521,9 @@ if [ "$1" = "bootstrap" ]; then
         ;;
       --with-default-content)
         SKIP_DEFAULT_CONTENT=0
+        ;;
+      --skip-setup)
+        SKIP_SETUP=1
         ;;
       --with-elasticsearch)
         SKIP_ELASTICSEARCH=0
@@ -546,7 +550,9 @@ if [ "$1" = "bootstrap" ]; then
   fi
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Install Drupal
   if [ $SKIP_INSTALL -eq 0 ] || (drupal_not_installed && [ ! -f $DATABASE_DUMP ]); then
@@ -636,7 +642,10 @@ elif [ "$1" = "setup" ]; then
   fi
 
   # Setup settings & Co.
-  setup
+  # Setup settings & Co.
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
 #
 # RESET DATABASE
@@ -646,6 +655,7 @@ elif [ "$1" = "db-reset" ]; then
 
   SKIP_DEFAULT_CONTENT=1
   SKIP_ELASTICSEARCH=1
+  SKIP_SETUP=0
   UPDATE_DATABASE_DUMP=0
 
   while [ $# -gt 0 ]; do
@@ -653,7 +663,10 @@ elif [ "$1" = "db-reset" ]; then
       --with-default-content)
         SKIP_DEFAULT_CONTENT=0
         ;;
-      --with-elasticsearch)
+      --skip-setup)
+        SKIP_SETUP=1
+        ;;
+        --with-elasticsearch)
         SKIP_ELASTICSEARCH=0
         ;;
       --update-dump)
@@ -668,7 +681,9 @@ elif [ "$1" = "db-reset" ]; then
   done
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database without default content
   database_reset
@@ -721,7 +736,9 @@ elif [ "$1" = "db-dump" ]; then
   done
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Save database dump
   database_dump "$FILE_PATH"
@@ -753,7 +770,9 @@ elif [ "$1" = "db-restore" ]; then
   done
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database without default content
   database_reset "$FILE_PATH"
@@ -765,7 +784,9 @@ elif [ "$1" = "db-update" ]; then
   shift
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Load config
   import_drupal_config
@@ -778,6 +799,7 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
 
   SKIP_DB_RESET=1
   SKIP_DEFAULT_CONTENT=1
+  SKIP_SETUP=0
   SKIP_ELASTICSEARCH=1
   SKIP_STYLEGUIDE=1
   TEST_SERVER_ARGS=()
@@ -789,6 +811,9 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
         ;;
       --with-default-content)
         SKIP_DEFAULT_CONTENT=0
+        ;;
+      --skip-setup)
+        SKIP_SETUP=1
         ;;
       --with-elasticsearch)
         SKIP_ELASTICSEARCH=0
@@ -814,7 +839,9 @@ elif [ "$1" = "php-server" ] || [ "$1" = "runserver" ]; then
   done
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
@@ -860,6 +887,7 @@ elif [ "$1" = "apache-server" ]; then
 
   SKIP_DB_RESET=1
   SKIP_DEFAULT_CONTENT=1
+  SKIP_SETUP=0
   SKIP_STYLEGUIDE=1
   TEST_SERVER_CACHE=0
   TEST_SERVER_ARGS=()
@@ -871,6 +899,9 @@ elif [ "$1" = "apache-server" ]; then
         ;;
       --with-default-content)
         SKIP_DEFAULT_CONTENT=0
+        ;;
+      --skip-setup)
+        SKIP_SETUP=1
         ;;
       --with-styleguide)
         SKIP_STYLEGUIDE=0
@@ -896,7 +927,9 @@ elif [ "$1" = "apache-server" ]; then
   done
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ] || drupal_not_installed; then
@@ -940,6 +973,7 @@ elif [ "$1" = "behat" ]; then
   SKIP_STYLEGUIDE=1
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
+  SKIP_SETUP=0
   WITH_ELASTICSEARCH=0
   BEHAT_ARGV=()
 
@@ -956,6 +990,9 @@ elif [ "$1" = "behat" ]; then
         ;;
       --skip-default-content)
         SKIP_DEFAULT_CONTENT=1
+        ;;
+      --skip-setup)
+        SKIP_SETUP=1
         ;;
       --with-elasticsearch)
         WITH_ELASTICSEARCH=1
@@ -983,7 +1020,9 @@ elif [ "$1" = "behat" ]; then
   fi
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
@@ -1059,6 +1098,7 @@ elif [ "$1" = "nightwatch" ]; then
   SKIP_STYLEGUIDE=1
   SKIP_DB_RESET=0
   SKIP_DEFAULT_CONTENT=0
+  SKIP_SETUP=0
   WITH_ELASTICSEARCH=0
   NIGHTWATCH_GROUPS=()
   NIGHTWATCH_ARGV=()
@@ -1076,6 +1116,9 @@ elif [ "$1" = "nightwatch" ]; then
         ;;
       --skip-default-content)
         SKIP_DEFAULT_CONTENT=1
+        ;;
+      --skip-setup)
+        SKIP_SETUP=1
         ;;
       --with-elasticsearch)
         WITH_ELASTICSEARCH=1
@@ -1103,7 +1146,9 @@ elif [ "$1" = "nightwatch" ]; then
   fi
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || drupal_not_installed; then
@@ -1191,6 +1236,7 @@ elif [ "$1" = "phpunit" ]; then
   SKIP_DB_EMPTY=0
   SKIP_DEFAULT_STOP=0
   SKIP_DEFAULT_CONTENT=1
+  SKIP_SETUP=0
   PHPUNIT_GROUPS=()
   PHPUNIT_EXCLUDE_GROUPS=()
   PHPUNIT_ARGV=()
@@ -1218,6 +1264,9 @@ elif [ "$1" = "phpunit" ]; then
         ;;
       --skip-default-stops)
         SKIP_DEFAULT_STOP=1
+        ;;
+      --skip-setup)
+        SKIP_SETUP=1
         ;;
       --tests-only|--only-tests)
         SKIP_DEPENDENCIES=1
@@ -1264,7 +1313,9 @@ elif [ "$1" = "phpunit" ]; then
   fi
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Ensure to have an empty database
   if [ $SKIP_DB_EMPTY -eq 0 ]; then
@@ -1376,7 +1427,9 @@ elif [ "$1" = "run" ]; then
   done
 
   # Setup settings & Co.
-  setup
+  if [ $SKIP_SETUP -eq 0 ]; then
+    setup
+  fi
 
   # Reset database
   if [ $SKIP_DB_RESET -eq 0 ] || [ $SKIP_DEFAULT_CONTENT -eq 0 ]; then
