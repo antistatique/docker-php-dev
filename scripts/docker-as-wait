@@ -14,7 +14,7 @@ WAITFORIT_PIDS=()
 function print_help() {
   echo "usage: $SCRIPT_NAME [options]
 
-    --wait   # How mayn seconds to wait before exit with error
+    --wait   # How many seconds to wait before exit with error
 
   * services:
     --mysql       # Wait until MySQL is ready
